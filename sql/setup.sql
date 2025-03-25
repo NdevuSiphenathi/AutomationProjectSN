@@ -1,4 +1,4 @@
--- Step 1: Create the AutoTest database if it doesn't exist
+-- Step 1: Create the AutoTest database
 IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'AutoTest')
 BEGIN
     CREATE DATABASE AutoTest;
