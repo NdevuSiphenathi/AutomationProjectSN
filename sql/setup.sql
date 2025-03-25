@@ -51,8 +51,8 @@ GO
 PRINT 'Stored procedure InsertUser created.';
 
 -- Step 5: Insert sample data using the stored procedure
-EXEC InsertUser @Name = 'John', @Surname = 'Doe', @Email = 'john.doe@example.com';
-EXEC InsertUser @Name = 'Jane', @Surname = 'Smith', @Email = 'jane.smith@example.com';
+EXEC InsertUser @Name = 'Siphenathi', @Surname = 'Ndevu', @Email = 'siph.do@example.com';
+EXEC InsertUser @Name = 'Ndevu', @Surname = 'Siphe', @Email = 'siph.sth@example.com';
 GO
 
 -- Step 6: Verify the setup (optional, for debugging)
