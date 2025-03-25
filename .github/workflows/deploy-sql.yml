@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'sql/**'
+      - 'Sql/**'
 
 jobs:
   deploy:
@@ -21,7 +21,7 @@ jobs:
       # Step 1b: Echo confirmation of checkout
       - name: Confirm checkout
         run: |
-          echo "Step 1: Checked out the repository containing setup.sql"
+          echo "Step 1: Checked out the repository containing Setup.sql"
 
       # Step 2: Install Microsoft SQL Server tools (sqlcmd) on Ubuntu
       - name: Install sqlcmd
@@ -47,7 +47,7 @@ jobs:
           SQL_USER: Auto_user
           SQL_PASSWORD: ${{ secrets.SQL_PASSWORD }}  # Siphenathi@12
         run: |
-          echo "Step 3: Running setup.sql to perform the following:"
+          echo "Step 3: Running Setup.sql to perform the following:"
           echo "  - Create AutoTest database if it doesn't exist"
           echo "  - Switch to AutoTest database"
           echo "  - Create user table with Name, Surname, Email fields"
