@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'Sql/**'
+      - 'sql/**'
 
 jobs:
   deploy:
@@ -47,7 +47,7 @@ jobs:
           SQL_USER: Auto_user
           SQL_PASSWORD: ${{ secrets.SQL_PASSWORD }}  # Siphenathi@12
         run: |
-          echo "Step 3: Running Setup.sql to perform the following:"
+          echo "Step 3: Running setup.sql to perform the following:"
           echo "  - Create AutoTest database if it doesn't exist"
           echo "  - Switch to AutoTest database"
           echo "  - Create user table with Name, Surname, Email fields"
