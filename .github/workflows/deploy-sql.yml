@@ -43,9 +43,9 @@ jobs:
       # Step 3: Execute the consolidated SQL script against the remote SQL Server
       - name: Deploy database, table, stored procedure, and data
         env:
-          SQL_SERVER: ${{ secrets.SQL_SERVER }}  # e.g., rnvaj-41-122-84-39.a.free.pinggy.link,41347
+          SQL_SERVER: ${{ secrets.SQL_SERVER }}  
           SQL_USER: Auto_user
-          SQL_PASSWORD: ${{ secrets.SQL_PASSWORD }}  # Siphenathi@12
+          SQL_PASSWORD: ${{ secrets.SQL_PASSWORD }}  
         run: |
           echo "Step 3: Running setup.sql to perform the following:"
           echo "  - Create AutoTest database if it doesn't exist"
