@@ -48,7 +48,7 @@ jobs:
           SQL_PASSWORD: ${{ secrets.SQL_PASSWORD }}
         run: |
           echo "Step 4: Verifying Development deployment"
-          sqlcmd -S "$SQL_SERVER" -U "$SQL_USER" -P "$SQL_PASSWORD" -Q "SELECT * FROM AutoTest_SN27March.dbo.user" -l 60
+          sqlcmd -S "$SQL_SERVER" -U "$SQL_USER" -P "$SQL_PASSWORD" -Q "SELECT * FROM AutoTestSiphenathi.dbo.user" -l 60
 
   deploy-prod:
     name: Deploy to Production (Partner)
@@ -88,4 +88,4 @@ jobs:
           SQL_PASSWORD: ${{ secrets.PROD_SQL_PASSWORD }}
         run: |
           echo "Step 3: Verifying Production deployment"
-          sqlcmd -S "$SQL_SERVER" -U "$SQL_USER" -P "$SQL_PASSWORD" -Q "SELECT * FROM AutoTest_SN27March.dbo.user" -l 60
+          sqlcmd -S "$SQL_SERVER" -U "$SQL_USER" -P "$SQL_PASSWORD" -Q "SELECT * FROM AutoTestSiphenathi.dbo.user" -l 60
