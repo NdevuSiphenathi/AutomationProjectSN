@@ -3,16 +3,16 @@ USE master;
 GO
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'CreateAutoTest_SN27')
 BEGIN
-    DROP PROCEDURE AutoTest_SN27;
+    DROP PROCEDURE CreateAutoTest_SN27;
 END
 GO
-CREATE PROCEDURE AutoTest_SN27
+CREATE PROCEDURE CreateAutoTest_SN27;
 AS
 BEGIN
     IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'AutoTest_SN27')
     BEGIN
-        CREATE DATABASE CreateAutoTest_SN27;
-        PRINT 'Database AutoTest_SN27i created.';
+        CREATE DATABASE AutoTest_SN27;
+        PRINT 'Database AutoTest_SN27 is created.';
     END
     ELSE
         PRINT 'Database AutoTest_SN27 already exists.';
