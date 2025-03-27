@@ -1,19 +1,31 @@
--- Step 1: Create the AutoTest db
-IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'AutoTest')
+-- Step 1: Create AutoDBSiphenathi database via stored procedure
+USE master;
+GO
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'CreateAutoDBSiphenathi')
 BEGIN
-    CREATE DATABASE AutoTest;
-    PRINT 'Database AutoTest created.';
+    DROP PROCEDURE CreateAutoDBSiphenathi;
 END
-ELSE
-    PRINT 'Database AutoTest already exists.';
-
+GO
+CREATE PROCEDURE CreateAutoDBSiphenathi
+AS
+BEGIN
+    IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'AutoDBSiphenathi')
+    BEGIN
+        CREATE DATABASE AutoDBSiphenathi;
+        PRINT 'Database AutoDBSiphenathi created.';
+    END
+    ELSE
+        PRINT 'Database AutoDBSiphenathi already exists.';
+END;
+GO
+EXEC CreateAutoDBSiphenathi;
 GO
 
--- Step 2: Switch to the AutoTest database
-USE AutoTest;
+-- Step 2: Switch to AutoDBSiphenathi
+USE AutoDBSiphenathi;
 GO
 
--- Step 3: Create the user table with Name, Surname, and Email fields
+-- Step 3: Create user table
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'user')
 BEGIN
     CREATE TABLE [user] (
@@ -25,17 +37,14 @@ BEGIN
 END
 ELSE
     PRINT 'Table [user] already exists.';
-
 GO
 
--- Step 4: Create or replace the InsertUser stored procedure
+-- Step 4: Create InsertUser stored procedure
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'InsertUser')
 BEGIN
     DROP PROCEDURE InsertUser;
-    PRINT 'Existing InsertUser procedure dropped.';
 END
 GO
-
 CREATE PROCEDURE InsertUser
     @Name VARCHAR(50),
     @Surname VARCHAR(50),
@@ -44,18 +53,16 @@ AS
 BEGIN
     INSERT INTO [user] (Name, Surname, Email)
     VALUES (@Name, @Surname, @Email);
-    PRINT 'Data inserted via InsertUser: ' + @Name + ' ' + @Surname + ', ' + @Email;
+    PRINT 'Inserted: ' + @Name + ' ' + @Surname + ', ' + @Email;
 END;
 GO
 
-PRINT 'Stored procedure InsertUser created.';
-
--- Step 5: Insert sample data using the stored procedure
-EXEC InsertUser @Name = 'Siphenathi', @Surname = 'Ndevu', @Email = 'siph.do@example.com';
-EXEC InsertUser @Name = 'Ndevu', @Surname = 'Siphe', @Email = 'siph.sth@example.com';
+-- Step 5: Insert initial data
+EXEC InsertUser @Name = 'Siphenathi', @Surname = 'Ndevu', @Email = 'siphenathi@example.com';
+EXEC InsertUser @Name = 'Partner', @Surname = 'One', @Email = 'partner@example.com';
 GO
 
--- Step 6: Verify the setup (optional, for debugging)
-SELECT 'Verification: Contents of user table' AS Message;
+-- Step 6: Verify
+SELECT 'Verification: user table contents' AS Message;
 SELECT * FROM [user];
 GO
