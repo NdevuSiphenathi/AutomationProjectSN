@@ -1,28 +1,28 @@
 -- Step 1: Create AutoDBSiphenathi database via stored procedure
 USE master;
 GO
-IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'CreateAutoDBSiphenathi')
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'CreateAutoTest_SN27')
 BEGIN
-    DROP PROCEDURE CreateAutoDBSiphenathi;
+    DROP PROCEDURE AutoTest_SN27;
 END
 GO
-CREATE PROCEDURE CreateAutoDBSiphenathi
+CREATE PROCEDURE AutoTest_SN27
 AS
 BEGIN
-    IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'AutoDBSiphenathi')
+    IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'AutoTest_SN27')
     BEGIN
-        CREATE DATABASE AutoDBSiphenathi;
-        PRINT 'Database AutoDBSiphenathi created.';
+        CREATE DATABASE CreateAutoTest_SN27;
+        PRINT 'Database AutoTest_SN27i created.';
     END
     ELSE
-        PRINT 'Database AutoDBSiphenathi already exists.';
+        PRINT 'Database AutoTest_SN27 already exists.';
 END;
 GO
-EXEC CreateAutoDBSiphenathi;
+EXEC CreateAutoTest_SN27;
 GO
 
--- Step 2: Switch to AutoDBSiphenathi
-USE AutoDBSiphenathi;
+-- Step 2: Switch to AutoTest_SN27
+USE AutoTest_SN27;
 GO
 
 -- Step 3: Create user table
