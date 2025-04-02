@@ -19,6 +19,7 @@ jobs:
   deploy:
     name: Deploy to ${{ inputs.environment }}
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment == 'production' && 'production' || '' }}  # Only apply approval for production
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
