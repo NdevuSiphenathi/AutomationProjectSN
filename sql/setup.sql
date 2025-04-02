@@ -1,4 +1,4 @@
--- Step 1: Create AutoTestSiphenathi database
+-- Step 1: Create AutoTestSiphenathi databas
 USE master;
 GO
 IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'AutoTestSiphenathi')
