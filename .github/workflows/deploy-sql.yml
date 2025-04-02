@@ -26,4 +26,3 @@ jobs:
     secrets:
       SQL_SERVER: ${{ secrets.PROD_SQL_SERVER }}
       SQL_PASSWORD: ${{ secrets.PROD_SQL_PASSWORD }}
-    environment: production  # Requires approval before running
