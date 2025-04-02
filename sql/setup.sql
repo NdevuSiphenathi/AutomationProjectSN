@@ -1,4 +1,4 @@
--- Step 1: Create AutoTestSiphenathi database
+-- Step 1: Create AutoTestSiphenathi databas
 USE master;
 GO
 IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'AutoTestSiphenathi')
@@ -28,12 +28,7 @@ ELSE
     PRINT 'Table [user] already exists.';
 GO
 
--- Step 4: Clear the user table
-DELETE FROM [user];
-PRINT 'Cleared existing data from [user] table.';
-GO
-
--- Step 5: Create InsertUser stored procedure
+-- Step 4: Create InsertUser stored procedure
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'InsertUser')
 BEGIN
     DROP PROCEDURE InsertUser;
@@ -51,7 +46,12 @@ BEGIN
 END;
 GO
 
--- Step 6: Insert initial data
+-- Step 5: Insert initial data
 EXEC InsertUser @Name = 'Siphenathi', @Surname = 'Ndevu', @Email = 'siphenathi@example.com';
 EXEC InsertUser @Name = 'Partner', @Surname = 'One', @Email = 'partner@example.com';
+GO
+
+-- Step 6: Verify
+SELECT 'Verification: user table contents' AS Message;
+SELECT * FROM [user];
 GO
