@@ -48,7 +48,13 @@ jobs:
           SQL_PASSWORD: ${{ secrets.SQL_PASSWORD }}
         run: |
           echo "Step 4: Verifying Development deployment"
-          sqlcmd -S "$SQL_SERVER" -U "$SQL_USER" -P "$SQL_PASSWORD" -Q "SELECT * FROM AutoTestSiphenathi.dbo.user" -l 60
+          ROW_COUNT=$(sqlcmd -S "$SQL_SERVER" -U "$SQL_USER" -P "$SQL_PASSWORD" -Q "SELECT COUNT(*) FROM AutoTestSiphenathi.dbo.user" -l 60 -h -1 | grep -o '[0-9]\+')
+          if [ "$ROW_COUNT" -eq 2 ]; then
+            echo "Verification successful: Expected number of rows (2) found in user table."
+          else
+            echo "Verification failed: Expected 2 rows, but found $ROW_COUNT rows."
+            exit 1
+          fi
 
   deploy-prod:
     name: Deploy to Production (Partner)
@@ -88,4 +94,10 @@ jobs:
           SQL_PASSWORD: ${{ secrets.PROD_SQL_PASSWORD }}
         run: |
           echo "Step 3: Verifying Production deployment"
-          sqlcmd -S "$SQL_SERVER" -U "$SQL_USER" -P "$SQL_PASSWORD" -Q "SELECT * FROM AutoTestSiphenathi.dbo.user" -l 60
+          ROW_COUNT=$(sqlcmd -S "$SQL_SERVER" -U "$SQL_USER" -P "$SQL_PASSWORD" -Q "SELECT COUNT(*) FROM AutoTestSiphenathi.dbo.user" -l 60 -h -1 | grep -o '[0-9]\+')
+          if [ "$ROW_COUNT" -eq 2 ]; then
+            echo "Verification successful: Expected number of rows (2) found in user table."
+          else
+            echo "Verification failed: Expected 2 rows, but found $ROW_COUNT rows."
+            exit 1
+          fi
