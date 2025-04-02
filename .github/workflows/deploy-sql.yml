@@ -12,16 +12,18 @@ jobs:
     uses: ./.github/workflows/sql-deploy-template.yml
     with:
       environment: development
+      DB_NAME: AutoTest_SN27.db
+    secrets:
       SQL_SERVER: ${{ secrets.DEV_SQL_SERVER }}
       SQL_PASSWORD: ${{ secrets.SQL_PASSWORD }}
-      DB_NAME: AutoTest_SN27.db
 
   deploy-production:
     needs: deploy-development  # Ensures production runs only after development succeeds
     uses: ./.github/workflows/sql-deploy-template.yml
     with:
       environment: production
+      DB_NAME: AutoDBSiphenathi.db
+    secrets:
       SQL_SERVER: ${{ secrets.PROD_SQL_SERVER }}
       SQL_PASSWORD: ${{ secrets.PROD_SQL_PASSWORD }}
-      DB_NAME: AutoDBSiphenathi.db
     environment: production  # Requires approval before running
