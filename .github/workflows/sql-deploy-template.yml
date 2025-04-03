@@ -63,7 +63,7 @@ jobs:
         run: |
           echo "Verifying deployment in ${{ inputs.environment }}..."
           {
-            sqlcmd -S "$SQL_SERVER" -U "$SQL_USER" -P "$SQL_PASSWORD" -Q "SELECT * FROM AutoTestSiphenathi.dbo.user" -l 60
+            sqlcmd -S "$SQL_SERVER" -U "$SQL_USER" -P "$SQL_PASSWORD" -Q "SELECT * FROM AutoTestSiphenathi.dbo.user" -l 60 > /dev/null 2>&1
             echo "✅ Verification successful in ${{ inputs.environment }}."
           } || {
             echo "❌ Verification failed in ${{ inputs.environment }}!"
