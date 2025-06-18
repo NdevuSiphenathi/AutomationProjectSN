@@ -3,13 +3,13 @@
 -- =============================================
 
 -- 🔁 Create Database (if not exists)
-IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'TimesheetDB')
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'TimesheetDBTest')
 BEGIN
-    CREATE DATABASE [TimesheetDB];
+    CREATE DATABASE [TimesheetDBTest];
 END
 GO
 
-USE [TimesheetDB];
+USE [TimesheetDBTest];
 GO
 
 -- =============================================
