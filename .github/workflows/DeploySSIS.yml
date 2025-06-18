@@ -1,0 +1,51 @@
+name: Deploy SSIS Packages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.dtsx'
+      - '**/*.dtproj'
+
+jobs:
+  deploy-ssis:
+    runs-on: windows-latest
+
+    env:
+      DB_SERVER: ${{ secrets.DB_SERVER }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      SSIS_PROJECT_NAME: ProjectPackages
+      SSIS_FOLDER: TimesheetFolder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1.3.1
+
+      - name: Build .ispac
+        run: |
+          msbuild ".\ProjectPackages\ProjectPackages.dtproj" /p:Configuration=Development
+
+      - name: Install SqlServer module
+        run: |
+          Install-Module -Name SqlServer -Force -Scope CurrentUser
+        shell: pwsh
+
+      - name: Deploy .ispac to SSISDB
+        run: |
+          $ispacPath = ".\ProjectPackages\bin\Development\ProjectPackages.ispac"
+          $server = "${env:DB_SERVER}"
+          $folder = "${env:SSIS_FOLDER}"
+          $project = "${env:SSIS_PROJECT_NAME}"
+          $user = "${env:DB_USER}"
+          $password = "${env:DB_PASSWORD}"
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          $cred = New-Object System.Management.Automation.PSCredential ($user, $securePass)
+          Import-Module SqlServer
+          Deploy-ISProject -Path $ispacPath -DestinationServer $server `
+            -DestinationPath "\SSISDB\$folder" -Credential $cred
+        shell: pwsh
