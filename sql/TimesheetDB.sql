@@ -105,8 +105,10 @@ CREATE TABLE [dbo].[Leave] (
     [HasSickNote] CHAR(1) NULL,
     [FileName] NVARCHAR(260) NOT NULL,
     [InsertedAt] DATETIME NOT NULL DEFAULT (GETDATE()),
-    PRIMARY KEY CLUSTERED ([LeaveID])
+    PRIMARY KEY CLUSTERED ([LeaveID]),
+    CONSTRAINT UQ_Leave_Employee_Period UNIQUE (EmployeeID, LeaveStart, LeaveEnd, FileName)
 );
+
 ALTER TABLE [dbo].[Leave] ADD CONSTRAINT [FK_Leave_Activity] FOREIGN KEY ([ActivityID]) REFERENCES [dbo].[Activity] ([ActivityID]);
 ALTER TABLE [dbo].[Leave] ADD CONSTRAINT [FK_Leave_Employee] FOREIGN KEY ([EmployeeID]) REFERENCES [dbo].[Employee] ([EmployeeID]);
 GO
