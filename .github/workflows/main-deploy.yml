@@ -1,29 +1,33 @@
-# .github/workflows/main-deploy.yml
 name: Main Deployment Workflow
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'sql/TimesheetDB.sql'
+  workflow_dispatch:
 
 jobs:
   deploy-database:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install and Run SQLCMD
+      - name: Run SQLCMD to deploy TimesheetDB
+        shell: powershell
         run: |
-          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-          curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
-          sudo apt-get update
-          sudo ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
-          export PATH="$PATH:/opt/mssql-tools/bin"
-          sqlcmd -S $DB_SERVER -U $DB_USER -P $DB_PASSWORD -i sql/TimesheetDB.sql
+          $sqlFile = "sql/TimesheetDB.sql"
+          if (-Not (Test-Path $sqlFile)) {
+              Write-Error "SQL file not found at: $sqlFile"
+              exit 1
+          }
+
+          Write-Host "Deploying TimesheetDB using sqlcmd..."
+          $cmd = "sqlcmd -S `"$env:DB_SERVER`" -U `"$env:DB_USER`" -P `"$env:DB_PASSWORD`" -i `"$sqlFile`""
+          Invoke-Expression $cmd
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "sqlcmd failed with exit code $LASTEXITCODE"
+              exit $LASTEXITCODE
+          }
+          Write-Host "Database deployment completed."
         env:
           DB_SERVER: ${{ secrets.DB_SERVER }}
           DB_USER: ${{ secrets.DB_USER }}
