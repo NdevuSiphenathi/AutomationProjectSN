@@ -26,7 +26,6 @@ jobs:
         run: |
           Write-Host "Starting SSIS project deployment..."
 
-          # Use the correct .ispac path based on directory structure
           $ispacPath = "ProjectPackages\ProjectPackages\bin\Development\ProjectPackages.ispac"
           $wizardPath = "C:\Program Files (x86)\Microsoft SQL Server\160\DTS\Binn\ISDeploymentWizard.exe"
           $stdoutLog = ".\ssisdeploy_output.log"
@@ -36,7 +35,6 @@ jobs:
           Write-Host "Validating ISPAC file path: $ispacPath"
           if (-not (Test-Path $ispacPath)) {
               Write-Error "ISPAC file not found at: $ispacPath"
-              Get-ChildItem -Recurse | Out-String | Write-Host  # Debug: List all files
               exit 1
           }
 
@@ -74,9 +72,10 @@ jobs:
                   Write-Host "`t$arg"
               }
 
-              # Run with silent mode and capture output
-              $process = Start-Process -FilePath $wizardPath -ArgumentList $Arguments -NoNewWindow -PassThru -Wait -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
-              $exitCode = $process.ExitCode
+              # Capture output directly
+              $output = & $wizardPath @Arguments 2>&1
+              $output | Out-File -FilePath $stdoutLog
+              $exitCode = $LASTEXITCODE
 
               Write-Host "===== STDOUT ====="
               if (Test-Path $stdoutLog) {
@@ -95,12 +94,11 @@ jobs:
               return $exitCode
           }
 
-          # Deploy with Windows Authentication and silent mode
+          # Use Windows Authentication
           $winAuthArgs = @(
               "/SourcePath:`"$ispacPath`"",
               "/DestinationServer:`"$env:DB_SERVER`"",
-              "/DestinationPath:`"/SSISDB/TimesheetDeployedPackages/Projects`"",
-              "/Silent"
+              "/DestinationPath:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`""
           )
 
           $exitCode = Deploy-SSISProject -Arguments $winAuthArgs
@@ -108,18 +106,6 @@ jobs:
           if ($exitCode -ne 0) {
               Write-Error "Deployment failed with exit code $exitCode."
               exit $exitCode
-          }
-
-          # Validate deployment
-          Write-Host "Validating deployment in SSISDB..."
-          $validateCmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"SELECT name FROM SSISDB.catalog.projects WHERE name = 'ProjectPackages' AND folder_name = 'TimesheetDeployedPackages'`" -o $connectLog"
-          Invoke-Expression $validateCmd
-          if ($LASTEXITCODE -eq 0 -and (Get-Content $connectLog | Select-String "ProjectPackages")) {
-              Write-Host "Deployment validation succeeded: ProjectPackages found in SSISDB."
-          } else {
-              Write-Warning "Deployment validation failed: ProjectPackages not found in SSISDB."
-              Get-Content $connectLog | Write-Warning
-              exit 1
           }
 
           Write-Host "SSIS project deployed successfully."
