@@ -121,12 +121,12 @@ jobs:
           }
 
           $sqlAuthArgs = @(
-            "/SourcePath:`"$ispacPath`"",
-            "/DestinationServer:`"$env:DB_SERVER`"",
-            "/DestinationPath:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`"",
-            "/User:`"$env:DB_USER`"",
-            "/Password:`"$env:DB_PASSWORD`"",
-            "/Auth:SQL"
+            "/SP:`"$ispacPath`"",              # SourcePath
+            "/DS:`"$env:DB_SERVER`"",          # DestinationServer
+            "/DP:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`"",  # DestinationPath
+            "/DUN:`"$env:DB_USER`"",           # DestinationUsername
+            "/DPD:`"$env:DB_PASSWORD`"",       # DestinationPassword
+            "/DAT:SQL"                         # DestinationAuthenticationType
           )
 
           $exitCode = Deploy-SSISProject -Arguments $sqlAuthArgs
@@ -134,6 +134,19 @@ jobs:
           if ($exitCode -ne 0) {
             Write-Error "Deployment failed with exit code $exitCode."
             exit $exitCode
+          }
+
+          # Verify deployment
+          Write-Host "Verifying deployment in catalog..."
+          $verifySql = "SELECT * FROM SSISDB.catalog.projects WHERE folder_name = 'TimesheetDeployedPackages' AND name = 'ProjectPackages'"
+          $verifyCmd = "sqlcmd -S `"$env:DB_SERVER`" -U `"$env:DB_USER`" -P `"$env:DB_PASSWORD`" -Q `"$verifySql`" -o .\deployment_verify.log"
+          Invoke-Expression $verifyCmd
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Deployment verification succeeded. Check deployment_verify.log"
+            Get-Content .\deployment_verify.log | Write-Host
+          } else {
+            Write-Warning "Deployment verification failed. Check deployment_verify.log"
+            Get-Content .\deployment_verify.log | Write-Warning
           }
 
           Write-Host "SSIS project deployed successfully."
@@ -155,7 +168,7 @@ jobs:
           $outdir = "temp-jobs"
           New-Item -ItemType Directory -Force -Path $outdir | Out-Null
 
-          $packages = sqlcmd -S "$env:DB_SERVER" -U "$env:DB_USER" -P "$env:DB_PASSWORD" -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPA', 'TimesheetStaging 1')" -h -1 -W
+          $packages = sqlcmd -S "$env:DB_SERVER" -U "$env:DB_USER" -P "$env:DB_PASSWORD" -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
 
           foreach ($pkg in $packages.Trim().Split("`n") | Where-Object { $_ }) {
             $name = $pkg.Trim()
