@@ -99,7 +99,7 @@ jobs:
           $winAuthArgs = @(
               "/SourcePath:`"$ispacPath`"",
               "/DestinationServer:`"$env:DB_SERVER`"",
-              "/DestinationPath:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`"",
+              "/DestinationPath:`"/SSISDB/TimesheetDeployedPackages/Projects`"",
               "/Silent"
           )
 
