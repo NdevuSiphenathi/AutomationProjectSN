@@ -98,7 +98,7 @@ jobs:
           $winAuthArgs = @(
               "/SourcePath:`"$ispacPath`"",
               "/DestinationServer:`"$env:DB_SERVER`"",
-              "/DestinationPath:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`""
+              "/DestinationPath:`"/SSISDB/TimesheetDeployedPackages/Projects`""
           )
 
           $exitCode = Deploy-SSISProject -Arguments $winAuthArgs
