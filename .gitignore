@@ -27,3 +27,6 @@ __pycache__/
 # Ignore build output from older folders (escape spaces)
 DatabaseAdministration/SSI\ Packages/bin/
 DatabaseAdministration/SSI\ Packages/obj/
+.vs/
+*.suo
+*.backup.json
