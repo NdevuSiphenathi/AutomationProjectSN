@@ -4,8 +4,7 @@ on:
   workflow_dispatch: # Manual trigger
 
 env:
-  SSIS_PROJECT_PATH: "ProjectPackages/ProjectPackages.dtproj"
-  ISPAC_OUTPUT_PATH: "bin/Development"
+  ISPAC_PATH: "ProjectPackages.ispac"  # Path to the pre-built .ispac file
   SSIS_FOLDER_NAME: "SSISDB/Dev"
   SSIS_PROJECT_NAME: "ProjectPackages"
 
@@ -16,25 +15,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: List Directory Contents
-        run: dir
-        shell: cmd
-
       - name: Setup SSIS DevOps Tools
         uses: jonlabelle/setup-ssis-devops-tools@v1
 
-      - name: Debug SSISBuild
-        run: |
-          SSISBuild.exe -p "${{ env.SSIS_PROJECT_PATH }}" -help > debug_output.txt 2>&1
-          type debug_output.txt
-        shell: cmd
-
-      - name: Build SSIS Project
-        run: |
-          SSISBuild.exe -p "${{ env.SSIS_PROJECT_PATH }}" -c "Development" -o "${{ env.ISPAC_OUTPUT_PATH }}" -l INFO;.\ssisbuild.log
-        shell: cmd
-
       - name: Deploy SSIS Package
         run: |
-          SSISDeploy.exe "${{ env.ISPAC_OUTPUT_PATH }}/ProjectPackages.ispac" -ServerInstance "${{ secrets.DB_SERVER }}" -Catalog SSISDB -Folder "${{ env.SSIS_FOLDER_NAME }}" -ProjectName "${{ env.SSIS_PROJECT_NAME }}" -User "${{ secrets.DB_USER }}" -Password "${{ secrets.DB_PASSWORD }}"
+          SSISDeploy.exe "${{ env.ISPAC_PATH }}" -ServerInstance "${{ secrets.DB_SERVER }}" -Catalog SSISDB -Folder "${{ env.SSIS_FOLDER_NAME }}" -ProjectName "${{ env.SSIS_PROJECT_NAME }}" -User "${{ secrets.DB_USER }}" -Password "${{ secrets.DB_PASSWORD }}"
         shell: cmd
