@@ -16,12 +16,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check Working Directory
+      - name: List Directory Contents
         run: dir
         shell: cmd
 
       - name: Setup SSIS DevOps Tools
         uses: jonlabelle/setup-ssis-devops-tools@v1
+
+      - name: Debug SSISBuild
+        run: |
+          SSISBuild.exe -p "${{ env.SSIS_PROJECT_PATH }}" -help > debug_output.txt 2>&1
+          type debug_output.txt
+        shell: cmd
 
       - name: Build SSIS Project
         run: |
