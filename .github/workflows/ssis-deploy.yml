@@ -100,11 +100,8 @@ jobs:
               Write-Host "`t$arg"
             }
 
-            # Temporarily remove /Silent for debugging
-            $argsWithoutSilent = $Arguments | Where-Object { $_ -ne "/Silent" }
-            $output = & $wizardPath @argsWithoutSilent 2>$stderrLog
-            $output | Out-File -FilePath $stdoutLog
-            $exitCode = $LASTEXITCODE
+            $process = Start-Process -FilePath $wizardPath -ArgumentList $Arguments -Wait -NoNewWindow -PassThru -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
+            $exitCode = $process.ExitCode
 
             Write-Host "===== STDOUT ====="
             if (Test-Path $stdoutLog) {
@@ -158,7 +155,7 @@ jobs:
           $outdir = "temp-jobs"
           New-Item -ItemType Directory -Force -Path $outdir | Out-Null
 
-          $packages = sqlcmd -S "$env:DB_SERVER" -U "$env:DB_USER" -P "$env:DB_PASSWORD" -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
+          $packages = sqlcmd -S "$env:DB_SERVER" -U "$env:DB_USER" -P "$env:DB_PASSWORD" -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPA', 'TimesheetStaging 1')" -h -1 -W
 
           foreach ($pkg in $packages.Trim().Split("`n") | Where-Object { $_ }) {
             $name = $pkg.Trim()
