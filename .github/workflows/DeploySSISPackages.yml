@@ -32,48 +32,80 @@ jobs:
           $stderrLog = ".\ssisdeploy_error.log"
 
           Write-Host "Validating ISPAC file path: $ispacPath"
-          if (!(Test-Path $ispacPath)) {
-            Write-Error " ISPAC file not found at: $ispacPath"
-            exit 1
+          if (-not (Test-Path $ispacPath)) {
+              Write-Error "ISPAC file not found at: $ispacPath"
+              exit 1
           }
 
           Write-Host "Validating ISDeploymentWizard.exe path: $wizardPath"
-          if (!(Test-Path $wizardPath)) {
-            Write-Error " ISDeploymentWizard.exe not found at: $wizardPath"
-            exit 1
+          if (-not (Test-Path $wizardPath)) {
+              Write-Error "ISDeploymentWizard.exe not found at: $wizardPath"
+              exit 1
           }
 
-          $deployArgs = @(
-            "/Silent",
-            "/SourcePath:`"$ispacPath`"",
-            "/DestinationServer:`"$env:DB_SERVER`"",
-            "/DestinationPath:""/SSISDB/TimesheetDeployedPackages/ProjectPackages""",
-            "/User:`"$env:DB_USER`"",
-            "/Password:`"$env:DB_PASSWORD`"",
-            "/Auth:SQL"
+          function Deploy-SSISProject {
+              param (
+                  [string[]]$Arguments
+              )
+
+              Write-Host "Running ISDeploymentWizard with arguments:"
+              foreach ($arg in $Arguments) {
+                  Write-Host "`t$arg"
+              }
+
+              $process = Start-Process -FilePath $wizardPath -ArgumentList $Arguments -Wait -PassThru -NoNewWindow `
+                  -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
+
+              Write-Host "===== STDOUT ====="
+              if (Test-Path $stdoutLog) {
+                  Get-Content $stdoutLog | Write-Host
+              }
+              else {
+                  Write-Host "<No stdout log found>"
+              }
+
+              Write-Host "===== STDERR ====="
+              if (Test-Path $stderrLog) {
+                  Get-Content $stderrLog | Write-Host
+              }
+              else {
+                  Write-Host "<No stderr log found>"
+              }
+
+              return $process.ExitCode
+          }
+
+          # Try SQL Authentication first
+          $sqlArgs = @(
+              "/Silent",
+              "/SourcePath:`"$ispacPath`"",
+              "/DestinationServer:`"$env:DB_SERVER`"",
+              "/DestinationPath:""/SSISDB/TimesheetDeployedPackages/ProjectPackages""",
+              "/User:`"$env:DB_USER`"",
+              "/Password:`"$env:DB_PASSWORD`"",
+              "/Auth:SQL"
           )
 
-          Write-Host "Running ISDeploymentWizard with arguments:"
-          $deployArgs | ForEach-Object { Write-Host "`t$_" }
+          $exitCode = Deploy-SSISProject -Arguments $sqlArgs
 
-          $process = Start-Process `
-            -FilePath $wizardPath `
-            -ArgumentList $deployArgs `
-            -Wait `
-            -PassThru `
-            -NoNewWindow `
-            -RedirectStandardOutput $stdoutLog `
-            -RedirectStandardError $stderrLog
+          if ($exitCode -ne 0) {
+              Write-Warning "SQL Auth deployment failed with exit code $exitCode. Trying Windows Authentication..."
 
-          if ($process.ExitCode -ne 0) {
-            Write-Error " Deployment failed with exit code $($process.ExitCode)"
-            Write-Host "===== STDOUT ====="
-            Get-Content $stdoutLog | Write-Host
-            Write-Host "===== STDERR ====="
-            Get-Content $stderrLog | Write-Error
-            exit $process.ExitCode
+              $winAuthArgs = @(
+                  "/Silent",
+                  "/SourcePath:`"$ispacPath`"",
+                  "/DestinationServer:`"$env:DB_SERVER`"",
+                  "/DestinationPath:""/SSISDB/TimesheetDeployedPackages/ProjectPackages""",
+                  "/Auth:Windows"
+              )
+
+              $exitCode = Deploy-SSISProject -Arguments $winAuthArgs
+
+              if ($exitCode -ne 0) {
+                  Write-Error "Deployment failed with exit code $exitCode using Windows Authentication as well."
+                  exit $exitCode
+              }
           }
 
-          Write-Host " SSIS project deployed successfully."
-          Write-Host "===== STDOUT ====="
-          Get-Content $stdoutLog | Write-Host
+          Write-Host "SSIS project deployed successfully."
+          exit 0
