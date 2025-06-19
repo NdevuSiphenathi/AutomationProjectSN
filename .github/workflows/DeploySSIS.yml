@@ -13,7 +13,9 @@ jobs:
 
       - name: List Directory Contents
         shell: powershell
-        run: dir
+        run: |
+          Write-Host "Listing current directory contents:"
+          Get-ChildItem -Recurse
 
       - name: Deploy SSIS Project (.ispac)
         env:
@@ -22,36 +24,51 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         shell: powershell
         run: |
-          echo "Deploying SSIS project..."
+          Write-Host "Starting SSIS project deployment..."
+
           $ispacPath = "ProjectPackages\ProjectPackages\bin\Development\ProjectPackages.ispac"
-          Write-Host "Current working directory: $(Get-Location)"
-          Write-Host "Checking ISPAC at path: $ispacPath"
+          $wizardPath = "C:\Program Files (x86)\Microsoft SQL Server\160\DTS\Binn\ISDeploymentWizard.exe"
+          $logPath = ".\ssisdeploy.log"
+
+          Write-Host "Validating ISPAC file path: $ispacPath"
           if (!(Test-Path $ispacPath)) {
-            Write-Error "ISPAC file not found at $ispacPath"
+            Write-Error "❌ ISPAC file not found at: $ispacPath"
             exit 1
           }
-          $logPath = ".\ssisdeploy.log"
+
+          Write-Host "Validating ISDeploymentWizard.exe path: $wizardPath"
+          if (!(Test-Path $wizardPath)) {
+            Write-Error "❌ ISDeploymentWizard.exe not found at: $wizardPath"
+            exit 1
+          }
+
           $deployArgs = @(
             "/Silent",
             "/SourcePath:`"$ispacPath`"",
             "/DestinationServer:`"$env:DB_SERVER`"",
-            "/DestinationPath:""/SSISDB/TimesheetDeployedPackages/ProjectPackages"""  # Updated to match screenshot
+            "/DestinationPath:""/SSISDB/TimesheetDeployedPackages/ProjectPackages""",
             "/User:`"$env:DB_USER`"",
             "/Password:`"$env:DB_PASSWORD`"",
             "/Auth:SQL"
           )
+
+          Write-Host "Running ISDeploymentWizard with arguments:"
+          $deployArgs | ForEach-Object { Write-Host "`t$_" }
+
           $process = Start-Process `
-            -FilePath "C:\Program Files (x86)\Microsoft SQL Server\160\DTS\Binn\ISDeploymentWizard.exe" `
+            -FilePath $wizardPath `
             -ArgumentList $deployArgs `
             -Wait `
             -PassThru `
             -NoNewWindow `
             -RedirectStandardOutput $logPath `
             -RedirectStandardError $logPath
+
           if ($process.ExitCode -ne 0) {
-            Write-Error "Deployment failed with exit code $($process.ExitCode)"
+            Write-Error "❌ Deployment failed with exit code $($process.ExitCode)"
             Get-Content $logPath | Write-Error
             exit $process.ExitCode
           }
-          echo "SSIS project deployed successfully."
+
+          Write-Host "✅ SSIS project deployed successfully."
           Get-Content $logPath | Write-Host
