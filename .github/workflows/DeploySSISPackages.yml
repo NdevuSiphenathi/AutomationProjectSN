@@ -30,6 +30,7 @@ jobs:
           $wizardPath = "C:\Program Files (x86)\Microsoft SQL Server\160\DTS\Binn\ISDeploymentWizard.exe"
           $stdoutLog = ".\ssisdeploy_output.log"
           $stderrLog = ".\ssisdeploy_error.log"
+          $helpLog = ".\ssisdeploy_help.log"
 
           Write-Host "Validating ISPAC file path: $ispacPath"
           if (-not (Test-Path $ispacPath)) {
@@ -42,6 +43,12 @@ jobs:
               Write-Error "ISDeploymentWizard.exe not found at: $wizardPath"
               exit 1
           }
+
+          # Log ISDeploymentWizard help for debugging
+          Write-Host "Fetching ISDeploymentWizard help output..."
+          & $wizardPath /? | Out-File -FilePath $helpLog
+          Write-Host "===== Help Output ====="
+          Get-Content $helpLog | Write-Host
 
           function Deploy-SSISProject {
               param (
@@ -75,15 +82,13 @@ jobs:
               return $process.ExitCode
           }
 
-          # Try SQL Authentication first
+          # Try SQL Authentication with connection string
+          $sqlConnectionString = "Data Source=$env:DB_SERVER;User ID=$env:DB_USER;Password=$env:DB_PASSWORD;Initial Catalog=SSISDB"
           $sqlArgs = @(
               "/Silent",
               "/SourcePath:`"$ispacPath`"",
-              "/DestinationServer:`"$env:DB_SERVER`"",
-              "/DestinationPath:""/SSISDB/TimesheetDeployedPackages/ProjectPackages""",
-              "/User:`"$env:DB_USER`"",
-              "/Password:`"$env:DB_PASSWORD`"",
-              "/Auth:SQL"
+              "/DestinationServer:`"$sqlConnectionString`"",
+              "/DestinationPath:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`""
           )
 
           $exitCode = Deploy-SSISProject -Arguments $sqlArgs
@@ -95,8 +100,7 @@ jobs:
                   "/Silent",
                   "/SourcePath:`"$ispacPath`"",
                   "/DestinationServer:`"$env:DB_SERVER`"",
-                  "/DestinationPath:""/SSISDB/TimesheetDeployedPackages/ProjectPackages""",
-                  "/Auth:Windows"
+                  "/DestinationPath:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`""
               )
 
               $exitCode = Deploy-SSISProject -Arguments $winAuthArgs
