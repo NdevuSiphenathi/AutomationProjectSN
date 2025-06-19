@@ -26,5 +26,5 @@ jobs:
 
       - name: Deploy SSIS Package
         run: |
-          SSISDeploy.exe "${{ env.ISPAC_OUTPUT_PATH }}/ProjectPackages.ispac" -ServerInstance "${{ secrets.SSIS_SERVER }}" -Catalog SSISDB -Folder "${{ env.SSIS_FOLDER_NAME }}" -ProjectName "${{ env.SSIS_PROJECT_NAME }}" -User "${{ secrets.SQL_USERNAME }}" -Password "${{ secrets.SQL_PASSWORD }}"
+          SSISDeploy.exe "${{ env.ISPAC_OUTPUT_PATH }}/ProjectPackages.ispac" -ServerInstance "${{ secrets.DB_SERVER }}" -Catalog SSISDB -Folder "${{ env.SSIS_FOLDER_NAME }}" -ProjectName "${{ env.SSIS_PROJECT_NAME }}" -User "${{ secrets.DB_USER }}" -Password "${{ secrets.DB_PASSWORD }}"
         shell: cmd
