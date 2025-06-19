@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # Manual trigger
 
 env:
-  ISPAC_PATH: "bin/Development/ProjectPackages.ispac"
+  ISPAC_PATH: "ProjectPackages\ProjectPackages\bin\Development\ProjectPackages.ispac"  # Updated to match repository structure
   SSIS_FOLDER_NAME: "SSISDB/TimesheetDeployedPackages"
   SSIS_PROJECT_NAME: "ProjectPackages"
 
@@ -20,6 +20,18 @@ jobs:
 
       - name: Check File Existence
         run: if not exist "${{ env.ISPAC_PATH }}" echo File not found
+        shell: cmd
+
+      - name: Get Full Path
+        run: echo "Full path: %CD%\${{ env.ISPAC_PATH }}"
+        shell: cmd
+
+      - name: Debug SSISDeploy
+        run: SSISDeploy.exe -s "${{ env.ISPAC_PATH }}" -help > debug_output.txt 2>&1
+        shell: cmd
+
+      - name: Display Debug Output
+        run: type debug_output.txt
         shell: cmd
 
       - name: Deploy SSIS Package
