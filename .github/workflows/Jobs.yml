@@ -61,8 +61,13 @@ jobs:
 
           # Drop existing jobs if they exist
           Write-Host "Attempting to drop existing SQL Server Agent jobs..."
-          $packages = sqlcmd -S "$env:DB_SERVER" -E -Q "SELECT name FROM SSISDB.catalog.packages WHERE folder_name = 'TimesheetDeployedPackages' AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
-          foreach ($package in $packages.Trim().Split([Environment]::NewLine) | Where-Object { $_ }) {
+          $packages = sqlcmd -S "$env:DB_SERVER" -E -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
+          Write-Host "Raw package query output: $packages"
+          if ($packages -match "Msg|Invalid") {
+              Write-Error "Query returned errors instead of package names: $packages"
+              exit 1
+          }
+          foreach ($package in $packages.Trim().Split([Environment]::NewLine) | Where-Object { $_ -and $_ -notmatch "^\s*$" }) {
               $jobName = $package
               try {
                   $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"IF EXISTS (SELECT job_id FROM msdb.dbo.sysjobs WHERE name = N'$jobName') EXEC msdb.dbo.sp_delete_job @job_name = N'$jobName';`" -o $connectLog"
@@ -81,13 +86,18 @@ jobs:
 
           # Generate and deploy jobs for all packages except TimesheetPa and TimesheetStaging1
           Write-Host "Generating and deploying SQL Server Agent jobs..."
-          $packages = sqlcmd -S "$env:DB_SERVER" -E -Q "SELECT name FROM SSISDB.catalog.packages WHERE folder_name = 'TimesheetDeployedPackages' AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
+          $packages = sqlcmd -S "$env:DB_SERVER" -E -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
+          Write-Host "Raw package query output: $packages"
+          if ($packages -match "Msg|Invalid") {
+              Write-Error "Query returned errors instead of package names: $packages"
+              exit 1
+          }
           if (-not $packages) {
               Write-Error "No packages found in SSISDB/TimesheetDeployedPackages excluding TimesheetPa and TimesheetStaging1"
               exit 1
           }
 
-          foreach ($package in $packages.Trim().Split([Environment]::NewLine) | Where-Object { $_ }) {
+          foreach ($package in $packages.Trim().Split([Environment]::NewLine) | Where-Object { $_ -and $_ -notmatch "^\s*$" }) {
               $jobName = $package
               $scriptPath = Join-Path $tempJobsPath "$jobName.sql"
 
