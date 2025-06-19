@@ -1,0 +1,146 @@
+name: Deploy SQL Server Agent Jobs for All Packages
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-sql-agent-jobs:
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: List Directory Contents
+        shell: powershell
+        run: |
+          Write-Host "Listing current directory contents:"
+          Get-ChildItem -Recurse
+
+      - name: Deploy SQL Server Agent Jobs
+        env:
+          DB_SERVER: ${{ secrets.DB_SERVER }}
+        shell: powershell
+        run: |
+          Write-Host "Starting SQL Server Agent jobs deployment for all packages..."
+
+          $tempJobsPath = "temp-jobs"
+          $stdoutLog = ".\jobdeploy_output.log"
+          $stderrLog = ".\jobdeploy_error.log"
+          $connectLog = ".\sqlconnect_test.log"
+
+          # Create temporary directory for job scripts
+          if (-not (Test-Path $tempJobsPath)) {
+              New-Item -ItemType Directory -Path $tempJobsPath | Out-Null
+          }
+
+          # Test SQL Server connectivity with Windows Authentication
+          Write-Host "Testing Windows Authentication connectivity..."
+          try {
+              $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"SELECT @@VERSION`" -o $connectLog"
+              Invoke-Expression $sqlcmd
+              if ($LASTEXITCODE -eq 0) {
+                  Write-Host "Windows Authentication connectivity test succeeded."
+                  Get-Content $connectLog | Write-Host
+              } else {
+                  Write-Error "Windows Authentication connectivity test failed."
+                  Get-Content $connectLog | Write-Error
+                  exit 1
+              }
+          } catch {
+              Write-Error "Error testing Windows Authentication: $_"
+              exit 1
+          }
+
+          # Drop existing jobs if they exist
+          Write-Host "Attempting to drop existing SQL Server Agent jobs..."
+          $packages = sqlcmd -S "$env:DB_SERVER" -E -Q "SELECT name FROM SSISDB.catalog.packages WHERE folder_name = 'TimesheetDeployedPackages' AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
+          foreach ($package in $packages.Trim().Split([Environment]::NewLine) | Where-Object { $_ }) {
+              $jobName = $package
+              try {
+                  $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"IF EXISTS (SELECT job_id FROM msdb.dbo.sysjobs WHERE name = N'$jobName') EXEC msdb.dbo.sp_delete_job @job_name = N'$jobName';`" -o $connectLog"
+                  Invoke-Expression $sqlcmd
+                  if ($LASTEXITCODE -eq 0) {
+                      Write-Host "Existing job '$jobName' dropped successfully or did not exist."
+                      Get-Content $connectLog | Write-Host
+                  } else {
+                      Write-Warning "Failed to drop existing job '$jobName'. Continuing with deployment..."
+                      Get-Content $connectLog | Write-Warning
+                  }
+              } catch {
+                  Write-Warning "Error dropping existing job '$jobName': $_"
+              }
+          }
+
+          # Generate and deploy jobs for all packages except TimesheetPa and TimesheetStaging1
+          Write-Host "Generating and deploying SQL Server Agent jobs..."
+          $packages = sqlcmd -S "$env:DB_SERVER" -E -Q "SELECT name FROM SSISDB.catalog.packages WHERE folder_name = 'TimesheetDeployedPackages' AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
+          if (-not $packages) {
+              Write-Error "No packages found in SSISDB/TimesheetDeployedPackages excluding TimesheetPa and TimesheetStaging1"
+              exit 1
+          }
+
+          foreach ($package in $packages.Trim().Split([Environment]::NewLine) | Where-Object { $_ }) {
+              $jobName = $package
+              $scriptPath = Join-Path $tempJobsPath "$jobName.sql"
+              $scriptContent = @"
+USE msdb;
+GO
+
+-- Delete existing job if it exists
+IF EXISTS (SELECT job_id FROM msdb.dbo.sysjobs WHERE name = N'$jobName')
+    EXEC msdb.dbo.sp_delete_job @job_name = N'$jobName';
+
+-- Create new job
+EXEC msdb.dbo.sp_add_job
+    @job_name = N'$jobName',
+    @enabled = 1,
+    @description = N'Job to run SSIS package $jobName',
+    @owner_login_name = N'sa';
+
+-- Add job step to execute SSIS package
+EXEC msdb.dbo.sp_add_jobstep
+    @job_name = N'$jobName',
+    @step_name = N'Execute SSIS Package',
+    @subsystem = N'SSIS',
+    @command = N'/ISSERVER \"\SSISDB\TimesheetDeployedPackages\$jobName\Package.dtsx\" /SERVER \"$env:DB_SERVER\"',
+    @database_name = N'master';
+
+-- Add job schedule (e.g., daily at 2 AM)
+EXEC msdb.dbo.sp_add_jobschedule
+    @job_name = N'$jobName',
+    @name = N'DailySchedule',
+    @enabled = 1,
+    @freq_type = 4, -- Daily
+    @freq_interval = 1,
+    @active_start_time = 020000; -- 2:00 AM
+
+-- Add job to server
+EXEC msdb.dbo.sp_add_jobserver
+    @job_name = N'$jobName',
+    @server_name = N'(local)';
+GO
+"@
+              $scriptContent | Out-File -FilePath $scriptPath -Encoding UTF8
+
+              Write-Host "Deploying job script: $scriptPath"
+              try {
+                  $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -i `"$scriptPath`" -o $stdoutLog -e"
+                  Invoke-Expression $sqlcmd
+                  if ($LASTEXITCODE -eq 0) {
+                      Write-Host "Successfully deployed job script: $jobName.sql"
+                      Get-Content $stdoutLog | Write-Host
+                  } else {
+                      Write-Error "Failed to deploy job script: $jobName.sql"
+                      Get-Content $stdoutLog | Write-Error
+                      if (Test-Path $stderrLog) { Get-Content $stderrLog | Write-Error }
+                      exit 1
+                  }
+              } catch {
+                  Write-Error "Error deploying job script $jobName.sql: $_"
+                  exit 1
+              }
+          }
+
+          Write-Host "All SQL Server Agent jobs deployed successfully."
+          exit 0
