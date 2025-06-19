@@ -1,4 +1,3 @@
-# .github/workflows/ssis-deploy.yml
 name: SSIS and Agent Job Deployment
 
 on:
@@ -16,9 +15,11 @@ jobs:
         shell: powershell
         run: |
           Write-Host "Starting SSIS project deployment..."
+
           $ispacPath = "ProjectPackages\ProjectPackages\bin\Development\ProjectPackages.ispac"
           $wizardPath = "C:\Program Files (x86)\Microsoft SQL Server\160\DTS\Binn\ISDeploymentWizard.exe"
           $stdoutLog = ".\ssisdeploy_output.log"
+          $stderrLog = ".\ssisdeploy_error.log"
 
           if (-not (Test-Path $ispacPath)) {
               Write-Error "ISPAC file not found at: $ispacPath"
@@ -31,18 +32,44 @@ jobs:
           }
 
           Write-Host "Deploying with Windows Auth..."
+
           $args = @(
               "/SourcePath:`"$ispacPath`"",
               "/DestinationServer:`"$env:DB_SERVER`"",
               "/DestinationPath:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`""
           )
 
-          $result = & $wizardPath @args 2>&1
-          $result | Out-File -FilePath $stdoutLog
-          if ($LASTEXITCODE -ne 0) {
-              Write-Error "SSIS deployment failed."
-              exit 1
+          $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+          $processInfo.FileName = $wizardPath
+          $processInfo.Arguments = $args -join ' '
+          $processInfo.RedirectStandardOutput = $true
+          $processInfo.RedirectStandardError = $true
+          $processInfo.UseShellExecute = $false
+
+          $process = New-Object System.Diagnostics.Process
+          $process.StartInfo = $processInfo
+          $process.Start() | Out-Null
+
+          $stdOut = $process.StandardOutput.ReadToEnd()
+          $stdErr = $process.StandardError.ReadToEnd()
+          $process.WaitForExit()
+
+          # Write outputs to files
+          $stdOut | Out-File -FilePath $stdoutLog -Encoding utf8
+          $stdErr | Out-File -FilePath $stderrLog -Encoding utf8
+
+          # Write outputs to console
+          Write-Host "===== ISDeploymentWizard STDOUT ====="
+          Write-Host $stdOut
+
+          Write-Host "===== ISDeploymentWizard STDERR ====="
+          Write-Host $stdErr
+
+          if ($process.ExitCode -ne 0) {
+              Write-Error "SSIS deployment failed with exit code $($process.ExitCode). See logs for details."
+              exit $process.ExitCode
           }
+
           Write-Host "SSIS project deployed successfully."
         env:
           DB_SERVER: ${{ secrets.DB_SERVER }}
