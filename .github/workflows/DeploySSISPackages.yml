@@ -10,14 +10,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          path: repo
 
       - name: List Directory Contents
         shell: powershell
         run: |
           Write-Host "Listing current directory contents:"
-          Get-ChildItem -Recurse -Path repo
+          Get-ChildItem -Recurse
 
       - name: Deploy SSIS Project (.ispac)
         env:
@@ -28,8 +26,7 @@ jobs:
         run: |
           Write-Host "Starting SSIS project deployment..."
 
-          $repoPath = Resolve-Path "repo"
-          $ispacPath = Join-Path $repoPath "ProjectPackages\ProjectPackages\bin\Development\ProjectPackages.ispac"
+          $ispacPath = "ProjectPackages\ProjectPackages\bin\Development\ProjectPackages.ispac"
           $wizardPath = "C:\Program Files (x86)\Microsoft SQL Server\160\DTS\Binn\ISDeploymentWizard.exe"
           $stdoutLog = ".\ssisdeploy_output.log"
           $stderrLog = ".\ssisdeploy_error.log"
@@ -38,7 +35,6 @@ jobs:
           Write-Host "Validating ISPAC file path: $ispacPath"
           if (-not (Test-Path $ispacPath)) {
               Write-Error "ISPAC file not found at: $ispacPath"
-              Get-ChildItem -Recurse -Path $repoPath | Out-String | Write-Host
               exit 1
           }
 
@@ -48,6 +44,8 @@ jobs:
               exit 1
           }
 
+          # Test SQL Server connectivity
+          Write-Host "Testing Windows Authentication connectivity..."
           try {
               $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"SELECT @@VERSION`" -o $connectLog"
               Invoke-Expression $sqlcmd
@@ -65,21 +63,50 @@ jobs:
           }
 
           function Deploy-SSISProject {
-              param ([string[]]$Arguments)
+              param (
+                  [string[]]$Arguments
+              )
+
               Write-Host "Running ISDeploymentWizard with arguments:"
-              $Arguments | ForEach-Object { Write-Host "`t$_" }
-              $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-              $processInfo.FileName = $wizardPath
-              $processInfo.Arguments = ($Arguments -join " ")
-              $processInfo.RedirectStandardOutput = $true
-              $processInfo.RedirectStandardError = $true
-              $processInfo.UseShellExecute = $false
-              $processInfo.CreateNoWindow = $true
-              $process = [System.Diagnostics.Process]::Start($processInfo)
-              $process.WaitForExit()
-              $stdout = $process.StandardOutput.ReadToEnd()
-              $stderr = $process.StandardError.ReadToEnd()
-              $stdout | Out-File -FilePath $stdoutLog
-              $stderr | Out-File -FilePath $stderrLog
-              $exitCode = $process.ExitCode
-              Write-Host "===== STDOUT ====="; if (Test-Path $
+              foreach ($arg in $Arguments) {
+                  Write-Host "`t$arg"
+              }
+
+              # Capture output directly
+              $output = & $wizardPath @Arguments 2>&1
+              $output | Out-File -FilePath $stdoutLog
+              $exitCode = $LASTEXITCODE
+
+              Write-Host "===== STDOUT ====="
+              if (Test-Path $stdoutLog) {
+                  Get-Content $stdoutLog | Write-Host
+              } else {
+                  Write-Host "<No stdout log found>"
+              }
+
+              Write-Host "===== STDERR ====="
+              if (Test-Path $stderrLog) {
+                  Get-Content $stderrLog | Write-Host
+              } else {
+                  Write-Host "<No stderr log found>"
+              }
+
+              return $exitCode
+          }
+
+          # Use Windows Authentication
+          $winAuthArgs = @(
+              "/SourcePath:`"$ispacPath`"",
+              "/DestinationServer:`"$env:DB_SERVER`"",
+              "/DestinationPath:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`""
+          )
+
+          $exitCode = Deploy-SSISProject -Arguments $winAuthArgs
+
+          if ($exitCode -ne 0) {
+              Write-Error "Deployment failed with exit code $exitCode."
+              exit $exitCode
+          }
+
+          Write-Host "SSIS project deployed successfully."
+          exit 0
