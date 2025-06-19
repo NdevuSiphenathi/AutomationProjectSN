@@ -1,10 +1,10 @@
-name: Deploy SQL Server Agent Jobs
+name: Deploy SSIS Project
 
 on:
   workflow_dispatch:
 
 jobs:
-  deploy-sql-agent-jobs:
+  deploy-ssis-project:
     runs-on: [self-hosted, windows]
 
     steps:
@@ -16,27 +16,37 @@ jobs:
         run: |
           Write-Host "Listing current directory contents:"
           Get-ChildItem -Recurse
-      - name: Deploy SQL Server Agent Jobs
+
+      - name: Deploy SSIS Project (.ispac)
         env:
           DB_SERVER: ${{ secrets.DB_SERVER }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         shell: powershell
         run: |
-          Write-Host "Starting SQL Server Agent jobs deployment for all packages..."
-          $tempJobsPath = "temp-jobs"
-          $jobScriptTemplate = "sql/JobScript.sql"
-          $stdoutLog = ".\jobdeploy_output.log"
-          $stderrLog = ".\jobdeploy_error.log"
-          $connectLog = ".\sqlconnect_test.log"
-          # Validate template script exists
-          if (-not (Test-Path $jobScriptTemplate)) {
-              Write-Error "Job script template not found at: $jobScriptTemplate"
+          Write-Host "Starting SSIS project deployment..."
+
+          # Use the correct .ispac path based on directory structure
+          $ispacPath = "ProjectPackages.ispac"
+          $wizardPath = "C:\Program Files (x86)\Microsoft SQL Server\160\DTS\Binn\ISDeploymentWizard.exe"
+          $stdoutLog = ".\ssisdeploy_output.log"
+          $stderrLog = ".\ssisdeploy_error.log"
+          $connectLog = ".\ssisconnect_test.log"
+
+          Write-Host "Validating ISPAC file path: $ispacPath"
+          if (-not (Test-Path $ispacPath)) {
+              Write-Error "ISPAC file not found at: $ispacPath"
+              Get-ChildItem -Recurse | Out-String | Write-Host  # Debug: List all files
               exit 1
           }
-          # Create temporary directory for job scripts
-          if (-not (Test-Path $tempJobsPath)) {
-              New-Item -ItemType Directory -Path $tempJobsPath | Out-Null
+
+          Write-Host "Validating ISDeploymentWizard.exe path: $wizardPath"
+          if (-not (Test-Path $wizardPath)) {
+              Write-Error "ISDeploymentWizard.exe not found at: $wizardPath"
+              exit 1
           }
-          # Test SQL Server connectivity with Windows Authentication
+
+          # Test SQL Server connectivity
           Write-Host "Testing Windows Authentication connectivity..."
           try {
               $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"SELECT @@VERSION`" -o $connectLog"
@@ -45,77 +55,72 @@ jobs:
                   Write-Host "Windows Authentication connectivity test succeeded."
                   Get-Content $connectLog | Write-Host
               } else {
-                  Write-Error "Windows Authentication connectivity test failed."
-                  Get-Content $connectLog | Write-Error
+                  Write-Warning "Windows Authentication connectivity test failed."
+                  Get-Content $connectLog | Write-Warning
                   exit 1
               }
           } catch {
               Write-Error "Error testing Windows Authentication: $_"
               exit 1
           }
-          # Drop existing jobs if they exist
-          Write-Host "Attempting to drop existing SQL Server Agent jobs..."
-          $packages = sqlcmd -S "$env:DB_SERVER" -E -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
-          Write-Host "Raw package query output: $packages"
-          if ($packages -match "Msg|Invalid") {
-              Write-Error "Query returned errors instead of package names: $packages"
-              exit 1
-          }
-          foreach ($package in $packages.Trim().Split([Environment]::NewLine) | Where-Object { $_ -and $_ -notmatch "^\s*$" }) {
-              $jobName = $package
-              try {
-                  $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"IF EXISTS (SELECT job_id FROM msdb.dbo.sysjobs WHERE name = N'$jobName') EXEC msdb.dbo.sp_delete_job @job_name = N'$jobName';`" -o $connectLog"
-                  Invoke-Expression $sqlcmd
-                  if ($LASTEXITCODE -eq 0) {
-                      Write-Host "Existing job '$jobName' dropped successfully or did not exist."
-                      Get-Content $connectLog | Write-Host
-                  } else {
-                      Write-Warning "Failed to drop existing job '$jobName'. Continuing with deployment..."
-                      Get-Content $connectLog | Write-Warning
-                  }
-              } catch {
-                  Write-Warning "Error dropping existing job '$jobName': $_"
+
+          function Deploy-SSISProject {
+              param (
+                  [string[]]$Arguments
+              )
+
+              Write-Host "Running ISDeploymentWizard with arguments:"
+              foreach ($arg in $Arguments) {
+                  Write-Host "`t$arg"
               }
-          }
-          # Generate and deploy jobs for all packages except TimesheetPa and TimesheetStaging1
-          Write-Host "Generating and deploying SQL Server Agent jobs..."
-          $packages = sqlcmd -S "$env:DB_SERVER" -E -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
-          Write-Host "Raw package query output: $packages"
-          if ($packages -match "Msg|Invalid") {
-              Write-Error "Query returned errors instead of package names: $packages"
-              exit 1
-          }
-          if (-not $packages) {
-              Write-Error "No packages found in SSISDB/TimesheetDeployedPackages excluding TimesheetPa and TimesheetStaging1"
-              exit 1
-          }
-          foreach ($package in $packages.Trim().Split([Environment]::NewLine) | Where-Object { $_ -and $_ -notmatch "^\s*$" }) {
-              $jobName = $package
-              $scriptPath = Join-Path $tempJobsPath "$jobName.sql"
-              # Read the template and replace placeholders
-              $templateContent = Get-Content -Path $jobScriptTemplate -Raw
-              $scriptContent = $templateContent -replace '@jobName', $jobName -replace 'LAPTOP-ATT0UPK9', $env:DB_SERVER
-              # Debug: Write the script content to verify
-              Write-Host "Generated script content for $jobName.sql:"
-              $scriptContent | Write-Host
-              $scriptContent | Out-File -FilePath $scriptPath -Encoding UTF8 -NoNewline
-              Write-Host "Deploying job script: $scriptPath"
-              try {
-                  $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -i `"$scriptPath`" -o $stdoutLog -e"
-                  Invoke-Expression $sqlcmd
-                  if ($LASTEXITCODE -eq 0) {
-                      Write-Host "Successfully deployed job script: $jobName.sql"
-                      Get-Content $stdoutLog | Write-Host
-                  } else {
-                      Write-Error "Failed to deploy job script: $jobName.sql"
-                      Get-Content $stdoutLog | Write-Error
-                      if (Test-Path $stderrLog) { Get-Content $stderrLog | Write-Error }
-                      exit 1
-                  }
-              } catch {
-                  Write-Error "Error deploying job script $jobName.sql: $_"
-                  exit 1
+
+              # Run with silent mode and capture output
+              $process = Start-Process -FilePath $wizardPath -ArgumentList $Arguments -NoNewWindow -PassThru -Wait -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
+              $exitCode = $process.ExitCode
+
+              Write-Host "===== STDOUT ====="
+              if (Test-Path $stdoutLog) {
+                  Get-Content $stdoutLog | Write-Host
+              } else {
+                  Write-Host "<No stdout log found>"
               }
+
+              Write-Host "===== STDERR ====="
+              if (Test-Path $stderrLog) {
+                  Get-Content $stderrLog | Write-Host
+              } else {
+                  Write-Host "<No stderr log found>"
+              }
+
+              return $exitCode
           }
-          Write-Host "All SQL Server Agent jobs deployed successfully."
+
+          # Deploy with Windows Authentication and silent mode
+          $winAuthArgs = @(
+              "/SourcePath:`"$ispacPath`"",
+              "/DestinationServer:`"$env:DB_SERVER`"",
+              "/DestinationPath:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`"",
+              "/Silent"
+          )
+
+          $exitCode = Deploy-SSISProject -Arguments $winAuthArgs
+
+          if ($exitCode -ne 0) {
+              Write-Error "Deployment failed with exit code $exitCode."
+              exit $exitCode
+          }
+
+          # Validate deployment
+          Write-Host "Validating deployment in SSISDB..."
+          $validateCmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"SELECT name FROM SSISDB.catalog.projects WHERE name = 'ProjectPackages' AND folder_name = 'TimesheetDeployedPackages'`" -o $connectLog"
+          Invoke-Expression $validateCmd
+          if ($LASTEXITCODE -eq 0 -and (Get-Content $connectLog | Select-String "ProjectPackages")) {
+              Write-Host "Deployment validation succeeded: ProjectPackages found in SSISDB."
+          } else {
+              Write-Warning "Deployment validation failed: ProjectPackages not found in SSISDB."
+              Get-Content $connectLog | Write-Warning
+              exit 1
+          }
+
+          Write-Host "SSIS project deployed successfully."
           exit 0
