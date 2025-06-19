@@ -48,8 +48,6 @@ jobs:
       - name: Deploy SSIS Project (.ispac)
         env:
           DB_SERVER: ${{ secrets.DB_SERVER }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         shell: powershell
         run: |
           Write-Host "Starting SSIS project deployment..."
@@ -72,21 +70,21 @@ jobs:
             exit 1
           }
 
-          # Test SQL Server connectivity
-          Write-Host "Testing SQL Authentication connectivity..."
+          # Test SQL Server connectivity (optional, using Integrated Auth)
+          Write-Host "Testing Integrated Authentication connectivity..."
           try {
-            $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -U `"$env:DB_USER`" -P `"$env:DB_PASSWORD`" -Q `"SELECT @@VERSION`" -o $connectLog"
+            $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"SELECT @@VERSION`" -o $connectLog"
             Invoke-Expression $sqlcmd
             if ($LASTEXITCODE -eq 0) {
-              Write-Host "SQL Authentication connectivity test succeeded."
+              Write-Host "Integrated Authentication connectivity test succeeded."
               Get-Content $connectLog | Write-Host
             } else {
-              Write-Warning "SQL Authentication connectivity test failed."
+              Write-Warning "Integrated Authentication connectivity test failed."
               Get-Content $connectLog | Write-Warning
               exit 1
             }
           } catch {
-            Write-Error "Error testing SQL Authentication: $_"
+            Write-Error "Error testing Integrated Authentication: $_"
             exit 1
           }
 
@@ -120,17 +118,14 @@ jobs:
             return $exitCode
           }
 
-          $sqlAuthArgs = @(
+          $intAuthArgs = @(
             "/S+",                              # Silent mode enabled
             "/SP:`"$ispacPath`"",              # SourcePath
             "/DS:`"$env:DB_SERVER`"",          # DestinationServer
-            "/DP:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`"",  # DestinationPath
-            "/DUN:`"$env:DB_USER`"",           # DestinationUsername
-            "/DPD:`"$env:DB_PASSWORD`"",       # DestinationPassword
-            "/DAT:SQL"                         # DestinationAuthenticationType
+            "/DP:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`""  # DestinationPath
           )
 
-          $exitCode = Deploy-SSISProject -Arguments $sqlAuthArgs
+          $exitCode = Deploy-SSISProject -Arguments $intAuthArgs
 
           if ($exitCode -ne 0) {
             Write-Error "Deployment failed with exit code $exitCode."
@@ -140,7 +135,7 @@ jobs:
           # Verify deployment
           Write-Host "Verifying deployment in catalog..."
           $verifySql = "SELECT * FROM SSISDB.catalog.projects WHERE folder_name = 'TimesheetDeployedPackages' AND name = 'ProjectPackages'"
-          $verifyCmd = "sqlcmd -S `"$env:DB_SERVER`" -U `"$env:DB_USER`" -P `"$env:DB_PASSWORD`" -Q `"$verifySql`" -o .\deployment_verify.log"
+          $verifyCmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"$verifySql`" -o .\deployment_verify.log"  # Using -E for Integrated Auth
           Invoke-Expression $verifyCmd
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Deployment verification succeeded. Check deployment_verify.log"
@@ -169,7 +164,7 @@ jobs:
           $outdir = "temp-jobs"
           New-Item -ItemType Directory -Force -Path $outdir | Out-Null
 
-          $packages = sqlcmd -S "$env:DB_SERVER" -U "$env:DB_USER" -P "$env:DB_PASSWORD" -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
+          $packages = sqlcmd -S "$env:DB_SERVER" -E -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
 
           foreach ($pkg in $packages.Trim().Split("`n") | Where-Object { $_ }) {
             $name = $pkg.Trim()
@@ -177,7 +172,7 @@ jobs:
             $content = (Get-Content -Raw $template) -replace '@jobName', $name -replace 'LAPTOP-ATT0UPK9', $env:DB_SERVER
             $content | Out-File -Encoding utf8 -NoNewline $sqlFile
             Write-Host "Deploying job: $name"
-            $cmd = "sqlcmd -S `"$env:DB_SERVER`" -U `"$env:DB_USER`" -P `"$env:DB_PASSWORD`" -i `"$sqlFile`""
+            $cmd = "sqlcmd -S `"$env:DB_SERVER`" -E -i `"$sqlFile`""
             Invoke-Expression $cmd
             if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to deploy job: $name"
@@ -188,5 +183,3 @@ jobs:
           Write-Host "All SQL Server Agent jobs deployed."
         env:
           DB_SERVER: ${{ secrets.DB_SERVER }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
