@@ -12,8 +12,8 @@
   DTS:LocaleID="7177"
   DTS:ObjectName="Package3"
   DTS:PackageType="5"
-  DTS:VersionBuild="147"
-  DTS:VersionGUID="{6E635EAF-00EB-4232-B482-5D99AC685F79}">
+  DTS:VersionBuild="149"
+  DTS:VersionGUID="{7F0D7E76-3395-4C4E-A427-CBA40F94481C}">
   <DTS:Property
     DTS:Name="PackageFormatVersion">8</DTS:Property>
   <DTS:ConnectionManagers>
@@ -1241,14 +1241,35 @@
               ReadOnlyVariables="User::FilePath"
               ReadWriteVariables="User::EmployeeName,User::ExecutedBy,User::FileName,User::OperationType,User::PackageName,User::TableName,User::TaskName">
               <ProjectItem
-                Name="Properties\Settings.settings"
-                Encoding="UTF8"><![CDATA[<?xml version='1.0' encoding='iso-8859-1'?>
-<SettingsFile xmlns="uri:settings" CurrentProfile="(Default)">
-  <Profiles>
-    <Profile Name="(Default)" />
-  </Profiles>
-  <Settings />
-</SettingsFile>]]></ProjectItem>
+                Name="Properties\AssemblyInfo.cs"
+                Encoding="UTF8"><![CDATA[using System.Reflection;
+using System.Runtime.CompilerServices;
+
+//
+// General Information about an assembly is controlled through the following 
+// set of attributes. Change these attribute values to modify the information
+// associated with an assembly.
+//
+[assembly: AssemblyTitle("ST_8558a73ac821473e9eefb079a3b5aa92")]
+[assembly: AssemblyDescription("")]
+[assembly: AssemblyConfiguration("")]
+[assembly: AssemblyCompany("HP")]
+[assembly: AssemblyProduct("ST_8558a73ac821473e9eefb079a3b5aa92")]
+[assembly: AssemblyCopyright("Copyright @ HP 2025")]
+[assembly: AssemblyTrademark("")]
+[assembly: AssemblyCulture("")]
+//
+// Version information for an assembly consists of the following four values:
+//
+//      Major Version
+//      Minor Version 
+//      Build Number
+//      Revision
+//
+// You can specify all the values or you can default the Revision and Build Numbers 
+// by using the '*' as shown below:
+
+[assembly: AssemblyVersion("1.0.*")]]]></ProjectItem>
               <ProjectItem
                 Name="Properties\Resources.resx"
                 Encoding="UTF8"><![CDATA[<?xml version="1.0" encoding="utf-8"?>
@@ -1639,35 +1660,14 @@ namespace ST_8558a73ac821473e9eefb079a3b5aa92.Properties {
     }
 }]]></ProjectItem>
               <ProjectItem
-                Name="Properties\AssemblyInfo.cs"
-                Encoding="UTF8"><![CDATA[using System.Reflection;
-using System.Runtime.CompilerServices;
-
-//
-// General Information about an assembly is controlled through the following 
-// set of attributes. Change these attribute values to modify the information
-// associated with an assembly.
-//
-[assembly: AssemblyTitle("ST_8558a73ac821473e9eefb079a3b5aa92")]
-[assembly: AssemblyDescription("")]
-[assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("HP")]
-[assembly: AssemblyProduct("ST_8558a73ac821473e9eefb079a3b5aa92")]
-[assembly: AssemblyCopyright("Copyright @ HP 2025")]
-[assembly: AssemblyTrademark("")]
-[assembly: AssemblyCulture("")]
-//
-// Version information for an assembly consists of the following four values:
-//
-//      Major Version
-//      Minor Version 
-//      Build Number
-//      Revision
-//
-// You can specify all the values or you can default the Revision and Build Numbers 
-// by using the '*' as shown below:
-
-[assembly: AssemblyVersion("1.0.*")]]]></ProjectItem>
+                Name="Properties\Settings.settings"
+                Encoding="UTF8"><![CDATA[<?xml version='1.0' encoding='iso-8859-1'?>
+<SettingsFile xmlns="uri:settings" CurrentProfile="(Default)">
+  <Profiles>
+    <Profile Name="(Default)" />
+  </Profiles>
+  <Settings />
+</SettingsFile>]]></ProjectItem>
               <ProjectItem
                 Name="Properties\Resources.Designer.cs"
                 Encoding="UTF8"><![CDATA[//------------------------------------------------------------------------------
@@ -2023,6 +2023,40 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</BinaryItem>
           Id="Package\Foreach Loop Container\Script Task"
           TopLeft="52.499994946023,25.9999993852774" />
         <EdgeLayout
+          Id="Package\Foreach Loop Container.PrecedenceConstraints[Constraint]"
+          TopLeft="52.499994946023,46.7999993852774">
+          <EdgeLayout.Curve>
+            <mssgle:Curve
+              StartConnector="{assembly:Null}"
+              EndConnector="-2.49999986340609,61.5333329054387"
+              Start="0,0"
+              End="-9.99999986340609,61.5333329054387">
+              <mssgle:Curve.Segments>
+                <mssgle:SegmentCollection
+                  Capacity="5">
+                  <mssgle:LineSegment
+                    End="-20.9999998634061,0" />
+                  <mssgle:CubicBezierSegment
+                    Point1="-20.9999998634061,0"
+                    Point2="-24.9999998634061,0"
+                    Point3="-24.9999998634061,4" />
+                  <mssgle:LineSegment
+                    End="-24.9999998634061,57.5333329054387" />
+                  <mssgle:CubicBezierSegment
+                    Point1="-24.9999998634061,57.5333329054387"
+                    Point2="-24.9999998634061,61.5333329054387"
+                    Point3="-20.9999998634061,61.5333329054387" />
+                  <mssgle:LineSegment
+                    End="-9.99999986340609,61.5333329054387" />
+                </mssgle:SegmentCollection>
+              </mssgle:Curve.Segments>
+            </mssgle:Curve>
+          </EdgeLayout.Curve>
+          <EdgeLayout.Labels>
+            <EdgeLabelCollection />
+          </EdgeLayout.Labels>
+        </EdgeLayout>
+        <EdgeLayout
           Id="Package\Foreach Loop Container.PrecedenceConstraints[Constraint 1]"
           TopLeft="128.08332857531,129.133332290716">
           <EdgeLayout.Curve>
@@ -2066,40 +2100,6 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</BinaryItem>
             <EdgeLabelCollection />
           </EdgeLayout.Labels>
         </EdgeLayout>
-        <EdgeLayout
-          Id="Package\Foreach Loop Container.PrecedenceConstraints[Constraint]"
-          TopLeft="52.499994946023,46.7999993852774">
-          <EdgeLayout.Curve>
-            <mssgle:Curve
-              StartConnector="{assembly:Null}"
-              EndConnector="-2.49999986340609,61.5333329054387"
-              Start="0,0"
-              End="-9.99999986340609,61.5333329054387">
-              <mssgle:Curve.Segments>
-                <mssgle:SegmentCollection
-                  Capacity="5">
-                  <mssgle:LineSegment
-                    End="-20.9999998634061,0" />
-                  <mssgle:CubicBezierSegment
-                    Point1="-20.9999998634061,0"
-                    Point2="-24.9999998634061,0"
-                    Point3="-24.9999998634061,4" />
-                  <mssgle:LineSegment
-                    End="-24.9999998634061,57.5333329054387" />
-                  <mssgle:CubicBezierSegment
-                    Point1="-24.9999998634061,57.5333329054387"
-                    Point2="-24.9999998634061,61.5333329054387"
-                    Point3="-20.9999998634061,61.5333329054387" />
-                  <mssgle:LineSegment
-                    End="-9.99999986340609,61.5333329054387" />
-                </mssgle:SegmentCollection>
-              </mssgle:Curve.Segments>
-            </mssgle:Curve>
-          </EdgeLayout.Curve>
-          <EdgeLayout.Labels>
-            <EdgeLabelCollection />
-          </EdgeLayout.Labels>
-        </EdgeLayout>
         <ContainerLayout
           HeaderHeight="43"
           IsExpanded="True"
@@ -2118,7 +2118,7 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</BinaryItem>
         <NodeLayout
           Size="164.8,41.6"
           Id="Package.EventHandlers[OnError]\Execute SQL Task"
-          TopLeft="521.999992221594,161.999997586012" />
+          TopLeft="524.499992085,162.866664246652" />
       </GraphLayout>
     </LayoutInfo>
   </DtsEventHandler>
@@ -2138,7 +2138,7 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</BinaryItem>
         <NodeLayout
           Size="152.8,41.6"
           Id="Package\Foreach Loop Container\Data Flow Task\Derived Column"
-          TopLeft="81.1666650929385,76.5999984659754" />
+          TopLeft="81.9999983807405,76.5999984659754" />
         <NodeLayout
           Size="156,41.6"
           Id="Package\Foreach Loop Container\Data Flow Task\Data Conversion"
@@ -2193,7 +2193,7 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</BinaryItem>
         </EdgeLayout>
         <EdgeLayout
           Id="Package\Foreach Loop Container\Data Flow Task.Paths[Excel Source Output]"
-          TopLeft="155.283331928071,48.5999998956919">
+          TopLeft="155.699998571972,48.5999998956919">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
@@ -2215,7 +2215,7 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</BinaryItem>
         </EdgeLayout>
         <EdgeLayout
           Id="Package\Foreach Loop Container\Data Flow Task.Paths[Derived Column Output]"
-          TopLeft="158.449998242905,118.199998465975">
+          TopLeft="158.866664886806,118.199998465975">
           <EdgeLayout.Curve>
             <mssgle:Curve
               StartConnector="{assembly:Null}"
