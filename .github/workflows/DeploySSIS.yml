@@ -5,8 +5,7 @@ on:
 
 env:
   SSIS_PROJECT_PATH: "ProjectPackages/ProjectPackages.dtproj"
-  ISPAC_OUTPUT_PATH: "bin/Development" # Adjusted to match your bin/Development directory
-  SSIS_SERVER: "LAPTOP-ATT0UPK9"
+  ISPAC_OUTPUT_PATH: "bin/Development"
   SSIS_FOLDER_NAME: "SSISDB/Dev"
   SSIS_PROJECT_NAME: "ProjectPackages"
 
@@ -22,10 +21,10 @@ jobs:
 
       - name: Build SSIS Project
         run: |
-          SSISBuild.exe ${{ env.SSIS_PROJECT_PATH }} -Configuration Development -OutputFolder ${{ env.ISPAC_OUTPUT_PATH }}
+          SSISBuild.exe -p "${{ env.SSIS_PROJECT_PATH }}" -c "Development" -o "${{ env.ISPAC_OUTPUT_PATH }}"
         shell: cmd
 
       - name: Deploy SSIS Package
         run: |
-          SSISDeploy.exe ${{ env.ISPAC_OUTPUT_PATH }}/ProjectPackages.ispac -ServerInstance ${{ env.SSIS_SERVER }} -Catalog SSISDB -Folder ${{ env.SSIS_FOLDER_NAME }} -ProjectName ${{ env.SSIS_PROJECT_NAME }} -User ${{ secrets.SQL_USERNAME }} -Password ${{ secrets.SQL_PASSWORD }}
+          SSISDeploy.exe "${{ env.ISPAC_OUTPUT_PATH }}/ProjectPackages.ispac" -ServerInstance "${{ secrets.SSIS_SERVER }}" -Catalog SSISDB -Folder "${{ env.SSIS_FOLDER_NAME }}" -ProjectName "${{ env.SSIS_PROJECT_NAME }}" -User "${{ secrets.SQL_USERNAME }}" -Password "${{ secrets.SQL_PASSWORD }}"
         shell: cmd
