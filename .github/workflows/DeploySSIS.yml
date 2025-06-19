@@ -4,7 +4,8 @@ on:
   workflow_dispatch: # Manual trigger
 
 env:
-  ISPAC_PATH: "ProjectPackages\ProjectPackages\bin\Development\ProjectPackages.ispac"  # Updated to match repository structure
+  ISPAC_PATH: "ProjectPackages/ProjectPackages/bin/Development/ProjectPackages.ispac"
+  # Updated to match repository structure
   SSIS_FOLDER_NAME: "SSISDB/TimesheetDeployedPackages"
   SSIS_PROJECT_NAME: "ProjectPackages"
 
