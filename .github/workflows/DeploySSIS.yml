@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: List Directory Contents
         shell: powershell
@@ -17,29 +17,28 @@ jobs:
 
       - name: Deploy SSIS Project (.ispac)
         env:
-          DB_SERVER: ${{ secrets.DB_SERVER }}  # Using your secret names
+          DB_SERVER: ${{ secrets.DB_SERVER }}
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         shell: powershell
         run: |
           echo "Deploying SSIS project..."
-          $ispacPath = "ProjectPackages\ProjectPackages\bin\Development\ProjectPackages.ispac"  # Your directory structure
+          $ispacPath = "ProjectPackages\ProjectPackages\bin\Development\ProjectPackages.ispac"
           Write-Host "Current working directory: $(Get-Location)"
           Write-Host "Checking ISPAC at path: $ispacPath"
           if (!(Test-Path $ispacPath)) {
             Write-Error "ISPAC file not found at $ispacPath"
             exit 1
           }
-          # Add logging to a file
           $logPath = ".\ssisdeploy.log"
           $deployArgs = @(
             "/Silent",
             "/SourcePath:`"$ispacPath`"",
-            "/DestinationServer:`"$env:DB_SERVER`"",  # Using your DB_SERVER secret
-            "/DestinationPath:""/SSISDB/Dev/ProjectPackages"""  # Your target folder
-            "/User:`"$env:DB_USER`"",  # Using your DB_USER secret
-            "/Password:`"$env:DB_PASSWORD`"",  # Using your DB_PASSWORD secret
-            "/Auth:SQL"  # Specify SQL authentication
+            "/DestinationServer:`"$env:DB_SERVER`"",
+            "/DestinationPath:""/SSISDB/TimesheetDeployedPackages/ProjectPackages"""  # Updated to match screenshot
+            "/User:`"$env:DB_USER`"",
+            "/Password:`"$env:DB_PASSWORD`"",
+            "/Auth:SQL"
           )
           $process = Start-Process `
             -FilePath "C:\Program Files (x86)\Microsoft SQL Server\160\DTS\Binn\ISDeploymentWizard.exe" `
