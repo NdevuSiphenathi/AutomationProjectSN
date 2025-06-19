@@ -17,7 +17,6 @@
 
 # Ignore IDE and build folders
 .vs/
-bin/
 obj/
 __pycache__/
 *.pyc
