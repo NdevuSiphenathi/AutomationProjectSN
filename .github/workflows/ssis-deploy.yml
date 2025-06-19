@@ -121,6 +121,7 @@ jobs:
           }
 
           $sqlAuthArgs = @(
+            "/S+",                              # Silent mode enabled
             "/SP:`"$ispacPath`"",              # SourcePath
             "/DS:`"$env:DB_SERVER`"",          # DestinationServer
             "/DP:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`"",  # DestinationPath
