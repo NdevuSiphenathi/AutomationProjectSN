@@ -2,11 +2,7 @@
 name: Main Deployment Workflow
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'sql/TimesheetDB.sql'
+  workflow_dispatch:
 
 jobs:
   deploy-database:
