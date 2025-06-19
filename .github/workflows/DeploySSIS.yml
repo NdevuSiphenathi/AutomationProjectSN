@@ -4,8 +4,8 @@ on:
   workflow_dispatch: # Manual trigger
 
 env:
-  ISPAC_PATH: "ProjectPackages.ispac"  # Path to the pre-built .ispac file
-  SSIS_FOLDER_NAME: "SSISDB/Dev"
+  ISPAC_PATH: "bin/Development/ProjectPackages.ispac"
+  SSIS_FOLDER_NAME: "SSISDB/TimesheetDeployedPackages"
   SSIS_PROJECT_NAME: "ProjectPackages"
 
 jobs:
@@ -18,7 +18,11 @@ jobs:
       - name: Setup SSIS DevOps Tools
         uses: jonlabelle/setup-ssis-devops-tools@v1
 
+      - name: Check File Existence
+        run: if not exist "${{ env.ISPAC_PATH }}" echo File not found
+        shell: cmd
+
       - name: Deploy SSIS Package
         run: |
-          SSISDeploy.exe "${{ env.ISPAC_PATH }}" -ServerInstance "${{ secrets.DB_SERVER }}" -Catalog SSISDB -Folder "${{ env.SSIS_FOLDER_NAME }}" -ProjectName "${{ env.SSIS_PROJECT_NAME }}" -User "${{ secrets.DB_USER }}" -Password "${{ secrets.DB_PASSWORD }}"
+          SSISDeploy.exe -s "${{ env.ISPAC_PATH }}" -d "CATALOG;/${{ env.SSIS_FOLDER_NAME }};${{ secrets.DB_SERVER }}" -at "SQL" -u "${{ secrets.DB_USER }}" -p "${{ secrets.DB_PASSWORD }}" -l INFO;.\ssisdeploy.log
         shell: cmd
