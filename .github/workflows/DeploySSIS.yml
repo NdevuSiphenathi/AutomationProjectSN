@@ -1,49 +1,31 @@
 name: Deploy SSIS Packages
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - '**/*.dtsx'
-      - '**/*.dtproj'
+  workflow_dispatch: # Manual trigger
+
+env:
+  SSIS_PROJECT_PATH: "ProjectPackages/ProjectPackages.dtproj"
+  ISPAC_OUTPUT_PATH: "bin/Development" # Adjusted to match your bin/Development directory
+  SSIS_SERVER: "LAPTOP-ATT0UPK9"
+  SSIS_FOLDER_NAME: "SSISDB/Dev"
+  SSIS_PROJECT_NAME: "ProjectPackages"
 
 jobs:
   deploy-ssis:
     runs-on: windows-latest
-
-    env:
-      DB_SERVER: ${{ secrets.DB_SERVER }}
-      DB_USER: ${{ secrets.DB_USER }}
-      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-    
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v1.3.1
+      - name: Setup SSIS DevOps Tools
+        uses: jonlabelle/setup-ssis-devops-tools@v1
 
-      - name: Build .ispac
+      - name: Build SSIS Project
         run: |
-          msbuild ".\ProjectPackages\ProjectPackages.dtproj" /p:Configuration=Development
+          SSISBuild.exe ${{ env.SSIS_PROJECT_PATH }} -Configuration Development -OutputFolder ${{ env.ISPAC_OUTPUT_PATH }}
+        shell: cmd
 
-      - name: Install SqlServer module
+      - name: Deploy SSIS Package
         run: |
-          Install-Module -Name SqlServer -Force -Scope CurrentUser
-        shell: pwsh
-
-      - name: Deploy .ispac to SSISDB
-        run: |
-          $ispacPath = ".\ProjectPackages\bin\Development\ProjectPackages.ispac"
-          $server = "${env:DB_SERVER}"
-          $folder = "${env:SSIS_FOLDER}"
-          $project = "${env:SSIS_PROJECT_NAME}"
-          $user = "${env:DB_USER}"
-          $password = "${env:DB_PASSWORD}"
-          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
-          $cred = New-Object System.Management.Automation.PSCredential ($user, $securePass)
-          Import-Module SqlServer
-          Deploy-ISProject -Path $ispacPath -DestinationServer $server `
-            -DestinationPath "\SSISDB\$folder" -Credential $cred
-        shell: pwsh
+          SSISDeploy.exe ${{ env.ISPAC_OUTPUT_PATH }}/ProjectPackages.ispac -ServerInstance ${{ env.SSIS_SERVER }} -Catalog SSISDB -Folder ${{ env.SSIS_FOLDER_NAME }} -ProjectName ${{ env.SSIS_PROJECT_NAME }} -User ${{ secrets.SQL_USERNAME }} -Password ${{ secrets.SQL_PASSWORD }}
+        shell: cmd
