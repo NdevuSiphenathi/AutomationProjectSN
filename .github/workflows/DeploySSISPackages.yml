@@ -28,17 +28,18 @@ jobs:
 
           $ispacPath = "ProjectPackages\ProjectPackages\bin\Development\ProjectPackages.ispac"
           $wizardPath = "C:\Program Files (x86)\Microsoft SQL Server\160\DTS\Binn\ISDeploymentWizard.exe"
-          $logPath = ".\ssisdeploy.log"
+          $stdoutLog = ".\ssisdeploy_output.log"
+          $stderrLog = ".\ssisdeploy_error.log"
 
           Write-Host "Validating ISPAC file path: $ispacPath"
           if (!(Test-Path $ispacPath)) {
-            Write-Error "❌ ISPAC file not found at: $ispacPath"
+            Write-Error " ISPAC file not found at: $ispacPath"
             exit 1
           }
 
           Write-Host "Validating ISDeploymentWizard.exe path: $wizardPath"
           if (!(Test-Path $wizardPath)) {
-            Write-Error "❌ ISDeploymentWizard.exe not found at: $wizardPath"
+            Write-Error " ISDeploymentWizard.exe not found at: $wizardPath"
             exit 1
           }
 
@@ -61,14 +62,18 @@ jobs:
             -Wait `
             -PassThru `
             -NoNewWindow `
-            -RedirectStandardOutput $logPath `
-            -RedirectStandardError $logPath
+            -RedirectStandardOutput $stdoutLog `
+            -RedirectStandardError $stderrLog
 
           if ($process.ExitCode -ne 0) {
-            Write-Error "❌ Deployment failed with exit code $($process.ExitCode)"
-            Get-Content $logPath | Write-Error
+            Write-Error " Deployment failed with exit code $($process.ExitCode)"
+            Write-Host "===== STDOUT ====="
+            Get-Content $stdoutLog | Write-Host
+            Write-Host "===== STDERR ====="
+            Get-Content $stderrLog | Write-Error
             exit $process.ExitCode
           }
 
-          Write-Host "✅ SSIS project deployed successfully."
-          Get-Content $logPath | Write-Host
+          Write-Host " SSIS project deployed successfully."
+          Write-Host "===== STDOUT ====="
+          Get-Content $stdoutLog | Write-Host
