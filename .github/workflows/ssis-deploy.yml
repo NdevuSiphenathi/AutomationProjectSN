@@ -70,7 +70,7 @@ jobs:
             exit 1
           }
 
-          # Test SQL Server connectivity (optional, using Integrated Auth)
+          # Test SQL Server connectivity
           Write-Host "Testing Integrated Authentication connectivity..."
           try {
             $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"SELECT @@VERSION`" -o $connectLog"
@@ -135,7 +135,7 @@ jobs:
           # Verify deployment
           Write-Host "Verifying deployment in catalog..."
           $verifySql = "SELECT * FROM SSISDB.catalog.projects WHERE folder_name = 'TimesheetDeployedPackages' AND name = 'ProjectPackages'"
-          $verifyCmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"$verifySql`" -o .\deployment_verify.log"  # Using -E for Integrated Auth
+          $verifyCmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"$verifySql`" -o .\deployment_verify.log"
           Invoke-Expression $verifyCmd
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Deployment verification succeeded. Check deployment_verify.log"
@@ -164,18 +164,19 @@ jobs:
           $outdir = "temp-jobs"
           New-Item -ItemType Directory -Force -Path $outdir | Out-Null
 
-          $packages = sqlcmd -S "$env:DB_SERVER" -E -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
+          $packages = sqlcmd -S "BENT-DB_SERVER" -U "$env:DB_USER" -P "$env:DB_PASSWORD" -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
 
           foreach ($pkg in $packages.Trim().Split("`n") | Where-Object { $_ }) {
-            $name = $pkg.Trim()
+            $name = $pkg.Trim() # Keep .dtsx as part of the name since it's in the catalog
             $sqlFile = Join-Path $outdir "$name.sql"
-            $content = (Get-Content -Raw $template) -replace '@jobName', $name -replace 'LAPTOP-ATT0UPK9', $env:DB_SERVER
+            $content = (Get-Content -Raw $template) -replace '@jobName', $name -replace 'LAPTOP-ATT0UPK9', 'BENT-DB_SERVER' -replace '\$env:DB_USER', $env:DB_USER -replace '\$env:DB_SERVER', 'BENT-DB_SERVER'
             $content | Out-File -Encoding utf8 -NoNewline $sqlFile
-            Write-Host "Deploying job: $name"
-            $cmd = "sqlcmd -S `"$env:DB_SERVER`" -E -i `"$sqlFile`""
+            Write-Host "Deploying job: $name with package: $pkg on server: BENT-DB_SERVER"
+            $cmd = "sqlcmd -S `"BENT-DB_SERVER`" -U `"$env:DB_USER`" -P `"$env:DB_PASSWORD`" -i `"$sqlFile`" -o `"$outdir\$name.log`""
             Invoke-Expression $cmd
             if ($LASTEXITCODE -ne 0) {
-              Write-Error "Failed to deploy job: $name"
+              Write-Error "Failed to deploy job: $name. Check $outdir\$name.log for details"
+              Get-Content "$outdir\$name.log" | Write-Error
               exit 1
             }
           }
@@ -183,3 +184,5 @@ jobs:
           Write-Host "All SQL Server Agent jobs deployed."
         env:
           DB_SERVER: ${{ secrets.DB_SERVER }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
