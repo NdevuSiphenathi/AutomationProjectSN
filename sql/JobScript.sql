@@ -19,7 +19,7 @@ EXEC msdb.dbo.sp_add_jobstep
     @job_name = N'DeploySSISPackageJob',
     @step_name = N'Execute SSIS Package',
     @subsystem = N'SSIS',
-    @command = N'/ISSERVER "\SSISDB\TimesheetDeployedPackages\ProjectPackages\ProjectPackages.dtsx" /SERVER "@ServerName"',
+    @command = N'/ISSERVER "\SSISDB\TimesheetDeployedPackages\ProjectPackages\ProjectPackages.dtsx" /SERVER "LAPTOP-ATT0UPK9\MSSQLSERVER04"',
     @database_name = N'master';
 GO
 
