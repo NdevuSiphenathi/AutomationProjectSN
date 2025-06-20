@@ -26,7 +26,7 @@ EXEC msdb.dbo.sp_add_jobstep
     @job_name = N'@jobName',
     @step_name = N'Run SSIS Package',
     @subsystem = N'SSIS',
-    @command = N'/ISSERVER "\SSISDB\TimesheetDeployedPackages\ProjectPackages\@jobName.dtsx" /SERVER "BENT-DB_SERVER"',
+    @command = N'/ISSERVER "\SSISDB\TimesheetDeployedPackages\ProjectPackages\@jobName" /SERVER "BENT-DB_SERVER"',
     @database_name = N'master',
     @on_success_action = 1,
     @on_fail_action = 2;
