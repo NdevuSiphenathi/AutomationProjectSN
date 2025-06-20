@@ -1,11 +1,7 @@
 name: Deploy SSIS Project and Create Scheduled Jobs
 
 on:
-  workflow_run:
-    workflows: ["Database Automation"] # Adjust to your workflow name if different
-    types:
-      - completed
-  workflow_dispatch:
+  workflow_call:
 
 jobs:
   deploy-ssis-project:
@@ -173,7 +169,7 @@ jobs:
 
           # Calculate start date and time in PowerShell
           $startDate = (Get-Date).ToString("yyyyMMdd") # e.g., 20250620
-          $startTime = (Get-Date).ToString("HHmmss")   # e.g., 135000 for 1:50 PM
+          $startTime = (Get-Date).ToString("HHmmss")   # e.g., 135200 for 1:52 PM
 
           # List of packages based on your previous job names (adjust as needed)
           $packages = @(
@@ -182,7 +178,7 @@ jobs:
             "LoadClients",
             "LoadActivity",
             "LBillabeType",
-            "LeaveStaging" # Adjusted to include more of your packages, remove duplicates
+            "LeaveStaging" # Adjusted to include more of your packages
           )
 
           foreach ($pkg in $packages) {
