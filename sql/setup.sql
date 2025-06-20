@@ -1,105 +1,63 @@
-------  Create AutoTestSiphenathi database-------
-BEGIN TRY
-    USE master;
-    IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'AutoTestSiphenathi')
-    BEGIN
-        CREATE DATABASE AutoTestSiphenathi;
-        PRINT 'Database AutoTestSiphenathi created.';
-    END
-    ELSE
-        PRINT 'Database AutoTestSiphenathi already exists.';
-END TRY
-BEGIN CATCH
-    PRINT 'Error creating database AutoTestSiphenathi!';
-    PRINT ERROR_MESSAGE();
-END CATCH;
+USE [msdb];
 GO
 
---  Switch to AutoTestSiphenathi
-BEGIN TRY
-    USE AutoTestSiphenathi;
-    PRINT 'Switched to database AutoTestSiphenathi.';
-END TRY
-BEGIN CATCH
-    PRINT 'Error switching to AutoTestSiphenathi!';
-    PRINT ERROR_MESSAGE();
-END CATCH;
+-- Remove existing job
+IF EXISTS (SELECT job_id FROM msdb.dbo.sysjobs WHERE name = N'@jobName')
+BEGIN
+    EXEC msdb.dbo.sp_delete_job @job_name = N'@jobName';
+END
 GO
 
---  Create user table
-BEGIN TRY
-    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'user')
-    BEGIN
-        CREATE TABLE [user] (
-            Name VARCHAR(50),
-            Surname VARCHAR(50),
-            Email VARCHAR(100)
-        );
-        PRINT 'Table [user] created.';
-    END
-    ELSE
-        PRINT 'Table [user] already exists.';
-END TRY
-BEGIN CATCH
-    PRINT 'Error creating table [user]!';
-    PRINT ERROR_MESSAGE();
-END CATCH;
+-- Create job
+DECLARE @jobId BINARY(16);
+EXEC msdb.dbo.sp_add_job 
+    @job_name = N'@jobName',
+    @enabled = 1,
+    @notify_level_eventlog = 2,
+    @delete_level = 0,
+    @description = N'Scheduled job to execute SSIS package: @jobName every 1 minute',
+    @category_name = N'[Uncategorized (Local)]',
+    @owner_login_name = N'$env:DB_USER', -- Use workflow env variable
+    @job_id = @jobId OUTPUT;
 GO
 
---  Create InsertUser stored procedure
-BEGIN TRY
-    IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'InsertUser')
-    BEGIN
-        DROP PROCEDURE InsertUser;
-    END;
-    
-    EXEC('
-    CREATE PROCEDURE InsertUser
-        @Name VARCHAR(50),
-        @Surname VARCHAR(50),
-        @Email VARCHAR(100)
-    AS
-    BEGIN
-        BEGIN TRY
-            INSERT INTO [user] (Name, Surname, Email)
-            VALUES (@Name, @Surname, @Email);
-            PRINT ''Inserted: '' + @Name + '' '' + @Surname + '', '' + @Email;
-        END TRY
-        BEGIN CATCH
-            PRINT ''Error inserting user: '' + ERROR_MESSAGE();
-        END CATCH
-    END;
-    ');
-
-    PRINT 'Stored procedure InsertUser created.';
-END TRY
-BEGIN CATCH
-    PRINT 'Error creating stored procedure InsertUser!';
-    PRINT ERROR_MESSAGE();
-END CATCH;
+-- Add job step to run SSIS package
+EXEC msdb.dbo.sp_add_jobstep 
+    @job_name = N'@jobName',
+    @step_name = N'Run SSIS Package',
+    @subsystem = N'SSIS',
+    @command = N'/ISSERVER "\SSISDB\TimesheetDeployedPackages\ProjectPackages\@jobName.dtsx" /SERVER "$env:DB_SERVER" /ENVREFERENCE 0 /ISSERVER',
+    @database_name = N'master',
+    @on_success_action = 1,
+    @on_fail_action = 2;
 GO
 
---  Insert initial data
-BEGIN TRY
-    EXEC InsertUser @Name = 'Siphenathi', @Surname = 'Ndevu', @Email = 'siphenathi@example.com';
-    EXEC InsertUser @Name = 'Partner', @Surname = 'One', @Email = 'partner@example.com';
-    PRINT 'Initial data inserted.';
-END TRY
-BEGIN CATCH
-    PRINT 'Error inserting initial data!';
-    PRINT ERROR_MESSAGE();
-END CATCH;
+-- First schedule: starts at 00:00:00
+EXEC msdb.dbo.sp_add_jobschedule 
+    @job_name = N'@jobName',
+    @name = N'RunEveryMinute_0',
+    @enabled = 1,
+    @freq_type = 4,  -- daily
+    @freq_interval = 1,
+    @freq_subday_type = 4, -- minutes (corrected from seconds)
+    @freq_subday_interval = 1, -- every 1 minute
+    @active_start_time = 000000;
 GO
 
--- : Verify
-BEGIN TRY
-    IF EXISTS (SELECT 1 FROM [user])
-        PRINT 'Verification successful: Data exists.';
-    ELSE
-        PRINT 'Verification failed: No data found.';
-END TRY
-BEGIN CATCH
-    PRINT 'Error verifying user table!';
-    PRINT ERROR_MESSAGE();
-END CATCH;
+-- Second schedule: starts at 00:00:30 (optional, but limited to 1-minute minimum)
+EXEC msdb.dbo.sp_add_jobschedule 
+    @job_name = N'@jobName',
+    @name = N'RunEveryMinute_30',
+    @enabled = 1,
+    @freq_type = 4,  -- daily
+    @freq_interval = 1,
+    @freq_subday_type = 4, -- minutes
+    @freq_subday_interval = 1, -- every 1 minute
+    @active_start_time = 000030;
+GO
+
+-- Attach job to current server
+EXEC msdb.dbo.sp_add_jobserver 
+    @job_name = N'@jobName',
+    @server_name = N'(LOCAL)';
 GO
