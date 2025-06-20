@@ -167,7 +167,7 @@ jobs:
           $packages = sqlcmd -S "BENT-DB_SERVER" -U "$env:DB_USER" -P "$env:DB_PASSWORD" -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
 
           foreach ($pkg in $packages.Trim().Split("`n") | Where-Object { $_ }) {
-            $name = $pkg.Trim() # Keep .dtsx as part of the name since it's in the catalog
+            $name = $pkg.Trim() -replace '\.dtsx$', '' # Remove .dtsx from package name for job name
             $sqlFile = Join-Path $outdir "$name.sql"
             $content = (Get-Content -Raw $template) -replace '@jobName', $name -replace 'LAPTOP-ATT0UPK9', 'BENT-DB_SERVER' -replace '\$env:DB_USER', $env:DB_USER -replace '\$env:DB_SERVER', 'BENT-DB_SERVER'
             $content | Out-File -Encoding utf8 -NoNewline $sqlFile
