@@ -1,4 +1,4 @@
-name: Deploy SSIS Project and Create Scheduled Jobs
+name: SSIS and Agent Job Deployment
 
 on:
   workflow_call:
@@ -6,7 +6,6 @@ on:
 jobs:
   deploy-ssis-project:
     runs-on: [self-hosted, windows]
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout code
@@ -75,7 +74,7 @@ jobs:
           Write-Host "Testing Integrated Authentication connectivity..."
           try {
             $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"SELECT @@VERSION`" -o $connectLog"
-            Invoke-Expression $cmd
+            Invoke-Expression $sqlcmd
             if ($LASTEXITCODE -eq 0) {
               Write-Host "Integrated Authentication connectivity test succeeded."
               Get-Content $connectLog | Write-Host
@@ -152,86 +151,38 @@ jobs:
   deploy-sql-agent-jobs:
     needs: deploy-ssis-project
     runs-on: [self-hosted, windows]
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Create SQL Agent Jobs with Recurring Schedule
-        env:
-          SQL_SERVER: ${{ secrets.DB_SERVER }} # Using DB_SERVER secret for consistency
-          SQL_USERNAME: ${{ secrets.DB_USER }} # Using DB_USER secret for consistency
-          SQL_PASSWORD: ${{ secrets.DB_PASSWORD }} # Using DB_PASSWORD secret for consistency
+      - name: Deploy SQL Server Agent Jobs
         shell: powershell
         run: |
-          Write-Host "Creating SQL Agent Jobs to run every 2 minutes..."
+          Write-Host "Starting SQL Server Agent jobs deployment..."
+          $template = "sql/JobScript.sql"
+          $outdir = "temp-jobs"
+          New-Item -ItemType Directory -Force -Path $outdir | Out-Null
 
-          # Calculate start date and time in PowerShell
-          $startDate = (Get-Date).ToString("yyyyMMdd") # e.g., 20250620
-          $startTime = (Get-Date).ToString("HHmmss")   # e.g., 135200 for 1:52 PM
+          $packages = sqlcmd -S "$env:DB_SERVER" -U "$env:DB_USER" -P "$env:DB_PASSWORD" -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
 
-          # List of packages based on your previous job names (adjust as needed)
-          $packages = @(
-            "LoadEmployees",
-            "TimesheetStaging",
-            "LoadClients",
-            "LoadActivity",
-            "LBillabeType",
-            "LeaveStaging" # Adjusted to include more of your packages
-          )
-
-          foreach ($pkg in $packages) {
-            $jobName = "RunSSIS_$pkg"
-            $scheduleName = "Every2Min_$pkg"
-
-            $jobScript = "
-            USE msdb;
-
-            IF EXISTS (SELECT * FROM msdb.dbo.sysjobs WHERE name = '$jobName')
-            BEGIN
-              EXEC msdb.dbo.sp_delete_job @job_name = '$jobName';
-            END;
-
-            EXEC msdb.dbo.sp_add_job
-              @job_name = '$jobName',
-              @enabled = 1,
-              @owner_login_name = '$env:SQL_USERNAME';
-
-            EXEC msdb.dbo.sp_add_jobstep
-              @job_name = '$jobName',
-              @step_name = 'Run SSIS Package',
-              @subsystem = 'SSIS',
-              @command = '/ISSERVER \"\SSISDB\TimesheetDeployedPackages\ProjectPackages\$pkg\" /SERVER \"$env:SQL_SERVER\"',
-              @on_success_action = 1,
-              @database_name = 'SSISDB';
-
-            DECLARE @schedule_id INT;
-            EXEC msdb.dbo.sp_add_schedule
-              @schedule_name = '$scheduleName',
-              @enabled = 1,
-              @freq_type = 4, -- Daily
-              @freq_interval = 1, -- Every day
-              @freq_subday_type = 4, -- Minutes
-              @freq_subday_interval = 2, -- Every 2 minutes
-              @active_start_date = $startDate,
-              @active_start_time = $startTime,
-              @schedule_id = @schedule_id OUTPUT;
-
-            EXEC msdb.dbo.sp_attach_schedule
-              @job_name = '$jobName',
-              @schedule_name = '$scheduleName';
-
-            EXEC msdb.dbo.sp_add_jobserver
-              @job_name = '$jobName';
-            "
-
-            try {
-              Invoke-Sqlcmd -ServerInstance $env:SQL_SERVER -Username $env:SQL_USERNAME -Password $env:SQL_PASSWORD -Query $jobScript -ErrorAction Stop
-              Write-Host "Created job $jobName to run every 2 minutes starting at $startTime on $startDate for package: $pkg"
-            } catch {
-              Write-Error "Failed to create job for package $pkg: $($_.Exception.Message)"
+          foreach ($pkg in $packages.Trim().Split("`n") | Where-Object { $_ }) {
+            $name = $pkg.Trim() -replace '\.dtsx$', '' # Remove .dtsx from package name for job name
+            $sqlFile = Join-Path $outdir "$name.sql"
+            $content = (Get-Content -Raw $template) -replace '@jobName', $name -replace 'LAPTOP-ATT0UPK9', $env:DB_SERVER -replace '\$env:DB_USER', $env:DB_USER
+            $content | Out-File -Encoding utf8 -NoNewline $sqlFile
+            Write-Host "Deploying job: $name with package: $pkg"
+            $cmd = "sqlcmd -S `"$env:DB_SERVER`" -U `"$env:DB_USER`" -P `"$env:DB_PASSWORD`" -i `"$sqlFile`" -o `"$outdir\$name.log`""
+            Invoke-Expression $cmd
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to deploy job: $name. Check $outdir\$name.log for details"
+              Get-Content "$outdir\$name.log" | Write-Error
               exit 1
             }
           }
-          Write-Host "All SQL Agent jobs created with recurring 2-minute schedule."
+
+          Write-Host "All SQL Server Agent jobs deployed."
+        env:
+          DB_SERVER: ${{ secrets.DB_SERVER }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
