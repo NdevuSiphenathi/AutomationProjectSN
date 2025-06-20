@@ -1,188 +1,51 @@
-name: SSIS and Agent Job Deployment
+USE [msdb];
+GO
 
-on:
-  workflow_call:
+-- Remove existing job
+IF EXISTS (SELECT job_id FROM msdb.dbo.sysjobs WHERE name = N'@jobName')
+BEGIN
+    EXEC msdb.dbo.sp_delete_job @job_name = N'@jobName';
+END
+GO
 
-jobs:
-  deploy-ssis-project:
-    runs-on: [self-hosted, windows]
+-- Create job
+DECLARE @jobId BINARY(16);
+EXEC msdb.dbo.sp_add_job 
+    @job_name = N'@jobName',
+    @enabled = 1,
+    @notify_level_eventlog = 2,
+    @delete_level = 0,
+    @description = N'Scheduled job to execute SSIS package: @jobName every 1 minute',
+    @category_name = N'[Uncategorized (Local)]',
+    @owner_login_name = N'$env:DB_USER', -- May need adjustment for Windows Auth
+    @job_id = @jobId OUTPUT;
+GO
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+-- Add job step to run SSIS package
+EXEC msdb.dbo.sp_add_jobstep 
+    @job_name = N'@jobName',
+    @step_name = N'Run SSIS Package',
+    @subsystem = N'SSIS',
+    @command = N'/ISSERVER "\SSISDB\TimesheetDeployedPackages\ProjectPackages\@jobName.dtsx" /SERVER "$env:DB_SERVER"',
+    @database_name = N'master',
+    @on_success_action = 1,
+    @on_fail_action = 2;
+GO
 
-      - name: List Directory Contents
-        shell: powershell
-        run: |
-          Write-Host "Listing current directory contents:"
-          Get-ChildItem -Recurse
+-- Single schedule: starts at 00:00:00, every 1 minute
+EXEC msdb.dbo.sp_add_jobschedule 
+    @job_name = N'@jobName',
+    @name = N'RunEveryMinute',
+    @enabled = 1,
+    @freq_type = 4,  -- daily
+    @freq_interval = 1,
+    @freq_subday_type = 4, -- minutes
+    @freq_subday_interval = 1, -- every 1 minute
+    @active_start_time = 000000;
+GO
 
-      - name: Create SSIS Catalog
-        shell: powershell
-        env:
-          DB_SERVER: ${{ secrets.DB_SERVER }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        run: |
-          Write-Host "Checking and creating SSIS Catalog..."
-          $createCatalogSql = @"
-          IF NOT EXISTS (SELECT name FROM master.sys.databases WHERE name = 'SSISDB')
-          BEGIN
-              CREATE DATABASE SSISDB;
-              ALTER AUTHORIZATION ON DATABASE::SSISDB TO [sa];
-              EXEC SSISDB.catalog.create_catalog;
-          END
-          "@
-          $sqlFile = ".\create_ssisdb.sql"
-          $createCatalogSql | Out-File -FilePath $sqlFile -Encoding UTF8
-          $cmd = "sqlcmd -S `"$env:DB_SERVER`" -U `"$env:DB_USER`" -P `"$env:DB_PASSWORD`" -i `"$sqlFile`" -o .\ssisdb_create.log"
-          Invoke-Expression $cmd
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Failed to create SSIS Catalog. Check ssisdb_create.log"
-            Get-Content .\ssisdb_create.log | Write-Error
-            exit 1
-          }
-          Write-Host "SSIS Catalog creation/check completed."
-          Get-Content .\ssisdb_create.log | Write-Host
-
-      - name: Deploy SSIS Project (.ispac)
-        env:
-          DB_SERVER: ${{ secrets.DB_SERVER }}
-        shell: powershell
-        run: |
-          Write-Host "Starting SSIS project deployment..."
-
-          $ispacPath = "ProjectPackages\ProjectPackages\bin\Development\ProjectPackages.ispac"
-          $wizardPath = "C:\Program Files (x86)\Microsoft SQL Server\160\DTS\Binn\ISDeploymentWizard.exe"
-          $stdoutLog = ".\ssisdeploy_output.log"
-          $stderrLog = ".\ssisdeploy_error.log"
-          $connectLog = ".\ssisconnect_test.log"
-
-          Write-Host "Validating ISPAC file path: $ispacPath"
-          if (-not (Test-Path $ispacPath)) {
-            Write-Error "ISPAC file not found at: $ispacPath"
-            exit 1
-          }
-
-          Write-Host "Validating ISDeploymentWizard.exe path: $wizardPath"
-          if (-not (Test-Path $wizardPath)) {
-            Write-Error "ISDeploymentWizard.exe not found at: $wizardPath"
-            exit 1
-          }
-
-          # Test SQL Server connectivity
-          Write-Host "Testing Integrated Authentication connectivity..."
-          try {
-            $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"SELECT @@VERSION`" -o $connectLog"
-            Invoke-Expression $sqlcmd
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "Integrated Authentication connectivity test succeeded."
-              Get-Content $connectLog | Write-Host
-            } else {
-              Write-Warning "Integrated Authentication connectivity test failed."
-              Get-Content $connectLog | Write-Warning
-              exit 1
-            }
-          } catch {
-            Write-Error "Error testing Integrated Authentication: $_"
-            exit 1
-          }
-
-          function Deploy-SSISProject {
-            param (
-              [string[]]$Arguments
-            )
-
-            Write-Host "Running ISDeploymentWizard with arguments:"
-            foreach ($arg in $Arguments) {
-              Write-Host "`t$arg"
-            }
-
-            $process = Start-Process -FilePath $wizardPath -ArgumentList $Arguments -Wait -NoNewWindow -PassThru -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
-            $exitCode = $process.ExitCode
-
-            Write-Host "===== STDOUT ====="
-            if (Test-Path $stdoutLog) {
-              Get-Content $stdoutLog | Write-Host
-            } else {
-              Write-Host "<No stdout log found>"
-            }
-
-            Write-Host "===== STDERR ====="
-            if (Test-Path $stderrLog) {
-              Get-Content $stderrLog | Write-Host
-            } else {
-              Write-Host "<No stderr log found>"
-            }
-
-            return $exitCode
-          }
-
-          $intAuthArgs = @(
-            "/S+",                              # Silent mode enabled
-            "/SP:`"$ispacPath`"",              # SourcePath
-            "/DS:`"$env:DB_SERVER`"",          # DestinationServer
-            "/DP:`"/SSISDB/TimesheetDeployedPackages/ProjectPackages`""  # DestinationPath
-          )
-
-          $exitCode = Deploy-SSISProject -Arguments $intAuthArgs
-
-          if ($exitCode -ne 0) {
-            Write-Error "Deployment failed with exit code $exitCode."
-            exit $exitCode
-          }
-
-          # Verify deployment
-          Write-Host "Verifying deployment in catalog..."
-          $verifySql = "SELECT * FROM SSISDB.catalog.projects WHERE folder_name = 'TimesheetDeployedPackages' AND name = 'ProjectPackages'"
-          $verifyCmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"$verifySql`" -o .\deployment_verify.log"
-          Invoke-Expression $verifyCmd
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "Deployment verification succeeded. Check deployment_verify.log"
-            Get-Content .\deployment_verify.log | Write-Host
-          } else {
-            Write-Warning "Deployment verification failed. Check deployment_verify.log"
-            Get-Content .\deployment_verify.log | Write-Warning
-          }
-
-          Write-Host "SSIS project deployed successfully."
-          exit 0
-
-  deploy-sql-agent-jobs:
-    needs: deploy-ssis-project
-    runs-on: [self-hosted, windows]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Deploy SQL Server Agent Jobs
-        shell: powershell
-        run: |
-          Write-Host "Starting SQL Server Agent jobs deployment..."
-          $template = "sql/JobScript.sql"
-          $outdir = "temp-jobs"
-          New-Item -ItemType Directory -Force -Path $outdir | Out-Null
-
-          $packages = sqlcmd -S "$env:DB_SERVER" -U "$env:DB_USER" -P "$env:DB_PASSWORD" -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
-
-          foreach ($pkg in $packages.Trim().Split("`n") | Where-Object { $_ }) {
-            $name = $pkg.Trim() # Keep .dtsx as part of the name since it's in the catalog
-            $sqlFile = Join-Path $outdir "$name.sql"
-            $content = (Get-Content -Raw $template) -replace '@jobName', $name -replace 'LAPTOP-ATT0UPK9', '$env:DB_SERVER' -replace '\$env:DB_USER', $env:DB_USER -replace '\$env:DB_SERVER', '$env:DB_SERVER'
-            $content | Out-File -Encoding utf8 -NoNewline $sqlFile
-            Write-Host "Deploying job: $name with package: $pkg on server: $env:DB_SERVER"
-            $cmd = "sqlcmd -S `"$env:DB_SERVER`" -U `"$env:DB_USER`" -P `"$env:DB_PASSWORD`" -i `"$sqlFile`" -o `"$outdir\$name.log`""
-            Invoke-Expression $cmd
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "Failed to deploy job: $name. Check $outdir\$name.log for details"
-              Get-Content "$outdir\$name.log" | Write-Error
-              exit 1
-            }
-          }
-
-          Write-Host "All SQL Server Agent jobs deployed."
-        env:
-          DB_SERVER: ${{ secrets.DB_SERVER }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+-- Attach job to current server
+EXEC msdb.dbo.sp_add_jobserver 
+    @job_name = N'@jobName',
+    @server_name = N'$env:DB_SERVER';
+GO
