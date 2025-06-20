@@ -164,7 +164,25 @@ jobs:
           $outdir = "temp-jobs"
           New-Item -ItemType Directory -Force -Path $outdir | Out-Null
 
-          $packages = sqlcmd -S "$env:DB_SERVER" -U "$env:DB_USER" -P "$env:DB_PASSWORD" -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
+          $packages = sqlcmd -S "BENT-DB_SERVER" -U "$env:DB_USER" -P "$env:DB_PASSWORD" -Q "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -h -1 -W
 
           foreach ($pkg in $packages.Trim().Split("`n") | Where-Object { $_ }) {
-            $name =
+            $name = $pkg.Trim() -replace '\.dtsx$', '' # Remove .dtsx from package name for job name
+            $sqlFile = Join-Path $outdir "$name.sql"
+            $content = (Get-Content -Raw $template) -replace '@jobName', $name -replace 'LAPTOP-ATT0UPK9', 'BENT-DB_SERVER' -replace '\$env:DB_USER', $env:DB_USER -replace '\$env:DB_SERVER', 'BENT-DB_SERVER'
+            $content | Out-File -Encoding utf8 -NoNewline $sqlFile
+            Write-Host "Deploying job: $name with package: $pkg on server: BENT-DB_SERVER"
+            $cmd = "sqlcmd -S `"BENT-DB_SERVER`" -U `"$env:DB_USER`" -P `"$env:DB_PASSWORD`" -i `"$sqlFile`" -o `"$outdir\$name.log`""
+            Invoke-Expression $cmd
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to deploy job: $name. Check $outdir\$name.log for details"
+              Get-Content "$outdir\$name.log" | Write-Error
+              exit 1
+            }
+          } # Added missing closing brace here
+
+          Write-Host "All SQL Server Agent jobs deployed."
+        env:
+          DB_SERVER: ${{ secrets.DB_SERVER }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
