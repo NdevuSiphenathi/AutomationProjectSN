@@ -165,7 +165,7 @@ jobs:
         run: |
           Write-Host "Starting SQL Server Agent jobs deployment..."
           $startDate = (Get-Date).ToString("yyyyMMdd") # e.g., 20250620
-          $startTime = (Get-Date).ToString("HHmmss")   # e.g., 100000 for 10:00 AM
+          $startTime = (Get-Date).ToString("HHmmss")   # e.g., 100500 for 10:05 AM
 
           # List of packages from your screenshot
           $packages = @(
