@@ -35,7 +35,7 @@ GO
 
 -- Add job schedule (e.g., every 30 seconds - Note: Minimum interval is 1 minute, adjusted to 1 minute)
 EXEC msdb.dbo.sp_add_jobschedule
-    @job_name = N'DeploySSISPackageJob',
+    @job_name = N'DeploySSISPackageJob', -- Ensure job_name matches the created job
     @name = N'DailySchedule',
     @enabled = 1,
     @freq_type = 4, -- Daily
