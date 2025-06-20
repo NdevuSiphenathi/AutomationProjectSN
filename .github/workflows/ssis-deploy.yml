@@ -70,7 +70,7 @@ jobs:
             exit 1
           }
 
-          # Test SQL Server connectivity (optional, using Integrated Auth)
+          # Test SQL Server connectivity
           Write-Host "Testing Integrated Authentication connectivity..."
           try {
             $sqlcmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"SELECT @@VERSION`" -o $connectLog"
@@ -135,7 +135,7 @@ jobs:
           # Verify deployment
           Write-Host "Verifying deployment in catalog..."
           $verifySql = "SELECT * FROM SSISDB.catalog.projects WHERE folder_name = 'TimesheetDeployedPackages' AND name = 'ProjectPackages'"
-          $verifyCmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"$verifySql`" -o .\deployment_verify.log"  # Using -E for Integrated Auth
+          $verifyCmd = "sqlcmd -S `"$env:DB_SERVER`" -E -Q `"$verifySql`" -o .\deployment_verify.log"
           Invoke-Expression $verifyCmd
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Deployment verification succeeded. Check deployment_verify.log"
@@ -165,9 +165,17 @@ jobs:
         run: |
           Write-Host "Starting SQL Server Agent jobs deployment..."
           $startDate = (Get-Date).ToString("yyyyMMdd") # e.g., 20250620
-          $startTime = (Get-Date).ToString("HHmmss")   # e.g., 095300 for 09:53 AM
+          $startTime = (Get-Date).ToString("HHmmss")   # e.g., 100000 for 10:00 AM
 
-          $packages = Invoke-Sqlcmd -ServerInstance $env:DB_SERVER -Username $env:DB_USER -Password $env:DB_PASSWORD -Query "SELECT name FROM SSISDB.catalog.packages WHERE project_id IN (SELECT project_id FROM SSISDB.catalog.folders WHERE name = 'TimesheetDeployedPackages') AND name NOT IN ('TimesheetPa', 'TimesheetStaging1')" -OutputAs DataRows | ForEach-Object { $_.name }
+          # List of packages from your screenshot
+          $packages = @(
+            "LBillabeType",
+            "LeaveStaging",
+            "LoadActivity",
+            "LoadClients",
+            "LoadEmployees",
+            "TimesheetStaging"
+          )
 
           foreach ($pkg in $packages) {
             $jobName = "RunSSIS_$pkg"
