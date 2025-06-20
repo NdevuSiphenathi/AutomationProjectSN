@@ -173,7 +173,7 @@ jobs:
 
           # Calculate start date and time in PowerShell
           $startDate = (Get-Date).ToString("yyyyMMdd") # e.g., 20250620
-          $startTime = (Get-Date).ToString("HHmmss")   # e.g., 134700 for 1:47 PM
+          $startTime = (Get-Date).ToString("HHmmss")   # e.g., 135000 for 1:50 PM
 
           # List of packages based on your previous job names (adjust as needed)
           $packages = @(
@@ -182,7 +182,7 @@ jobs:
             "LoadClients",
             "LoadActivity",
             "LBillabeType",
-            "LoadEmployees" # Note: Duplicate, adjust if intentional
+            "LeaveStaging" # Adjusted to include more of your packages, remove duplicates
           )
 
           foreach ($pkg in $packages) {
